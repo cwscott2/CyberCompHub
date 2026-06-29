@@ -5,6 +5,17 @@ import type { ComplianceFramework, Template } from '../types/compliance';
 
 type Step = 'framework' | 'template' | 'scope' | 'generate' | 'export';
 
+const FAMILY_FIELD_MAP: Record<string, string> = {
+  'CMMC': 'domain_name',
+  'SP 800-53': 'family_name',
+  'FedRAMP': 'family_name',
+  'NIST CSF': 'function_name',
+  'ISO 27001': 'annex_name',
+  'NIST RMF': 'category',
+};
+
+const FAMILY_SCOPED_TYPES = ['procedure', 'gap_assessment'];
+
 export default function WizardPage() {
   const [step, setStep] = useState<Step>('framework');
   const [frameworks, setFrameworks] = useState<ComplianceFramework[]>([]);
@@ -21,16 +32,6 @@ export default function WizardPage() {
   const [generatedDocId, setGeneratedDocId] = useState<string>('');
   const [exporting, setExporting] = useState(false);
 
-  const FAMILY_FIELD_MAP: Record<string, string> = {
-    'CMMC': 'domain_name',
-    'SP 800-53': 'family_name',
-    'NIST CSF': 'function_name',
-    'ISO 27001': 'annex_name',
-    'NIST RMF': 'category',
-  };
-
-  const FAMILY_SCOPED_TYPES = ['procedure', 'gap_assessment'];
-
   const selectedTemplateObj = templates.find(t => t.id === selectedTemplate);
   const isFamilyScoped = selectedTemplateObj
     ? FAMILY_SCOPED_TYPES.includes(selectedTemplateObj.template_type)
@@ -38,8 +39,7 @@ export default function WizardPage() {
 
   const selectedFrameworkObj = frameworks.find(f => f.id === selectedFramework);
   const familyField = selectedFrameworkObj
-    ? (FAMILY_FIELD_MAP[selectedFrameworkObj.abbreviation] ||
-       (selectedFrameworkObj.name === 'FedRAMP Moderate' ? 'family_name' : ''))
+    ? (FAMILY_FIELD_MAP[selectedFrameworkObj.abbreviation] || '')
     : '';
 
   useEffect(() => {
@@ -335,24 +335,32 @@ export default function WizardPage() {
             Customize Scope
           </h3>
           <div className="space-y-6">
-            {isFamilyScoped && availableFamilies.length > 0 && (
+            {isFamilyScoped && (
               <div>
                 <label className="block text-sm font-medium text-secondary-700 mb-2">
                   Control Family <span className="text-red-500">*</span>
                 </label>
-                <p className="text-sm text-secondary-600 mb-2">
-                  Select the control family to generate procedures for.
-                </p>
-                <select
-                  value={selectedFamily}
-                  onChange={(e) => setSelectedFamily(e.target.value)}
-                  className="input"
-                >
-                  <option value="">— Select a family —</option>
-                  {availableFamilies.map((family) => (
-                    <option key={family} value={family}>{family}</option>
-                  ))}
-                </select>
+                {availableFamilies.length > 0 ? (
+                  <>
+                    <p className="text-sm text-secondary-600 mb-2">
+                      Select the control family to generate procedures for.
+                    </p>
+                    <select
+                      value={selectedFamily}
+                      onChange={(e) => setSelectedFamily(e.target.value)}
+                      className="input"
+                    >
+                      <option value="">— Select a family —</option>
+                      {availableFamilies.map((family) => (
+                        <option key={family} value={family}>{family}</option>
+                      ))}
+                    </select>
+                  </>
+                ) : (
+                  <p className="text-sm text-secondary-500 italic">
+                    Loading control families...
+                  </p>
+                )}
               </div>
             )}
             <div>
