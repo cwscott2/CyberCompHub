@@ -17,6 +17,8 @@ interface GenerateRequest {
   template_id: string;
   custom_scope?: string;
   selected_controls?: string[];
+  selected_family?: string;
+  family_metadata_field?: string;
 }
 
 Deno.serve(async (req: Request) => {
@@ -25,7 +27,7 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const { framework_id, template_id, custom_scope, selected_controls }: GenerateRequest = await req.json();
+    const { framework_id, template_id, custom_scope, selected_controls, selected_family, family_metadata_field }: GenerateRequest = await req.json();
 
     if (!framework_id || !template_id) {
       return new Response(
@@ -64,7 +66,9 @@ Deno.serve(async (req: Request) => {
       .select('id, title, raw_content, metadata, document_type')
       .eq('framework_id', framework_id);
 
-    if (selected_controls && selected_controls.length > 0) {
+    if (selected_family && family_metadata_field) {
+      docQuery = docQuery.eq(`metadata->>${family_metadata_field}`, selected_family);
+    } else if (selected_controls && selected_controls.length > 0) {
       docQuery = docQuery.in('metadata->>practice_id', selected_controls);
     }
 
@@ -97,14 +101,36 @@ Deno.serve(async (req: Request) => {
         }
         sectionContent += '\n\n';
       } else if (section.section_key === 'controls' && documents) {
-        sectionContent = `## Controls and Requirements\n\n`;
+        const isProcedure = template.template_type === 'procedure';
+        sectionContent = isProcedure ? `## Procedures\n\n` : `## Controls and Requirements\n\n`;
         for (const doc of documents) {
           if (doc.document_type === 'control' || doc.document_type === 'requirement') {
-            if (doc.raw_content) {
+            if (isProcedure) {
+              const controlId = doc.metadata?.control_id || doc.metadata?.practice_id || '';
+              sectionContent += `### ${controlId}${controlId ? ' — ' : ''}${doc.title}\n\n`;
+              sectionContent += `**Step 1 — Understand the Requirement**\n`;
+              sectionContent += `${doc.raw_content || doc.title}\n\n`;
+              sectionContent += `**Step 2 — Assign Responsibility**\n`;
+              sectionContent += `Responsible Party: TBD\n\n`;
+              sectionContent += `**Step 3 — Implement**\n`;
+              sectionContent += `Document implementation steps specific to your environment.\n\n`;
+              sectionContent += `**Step 4 — Verify**\n`;
+              sectionContent += `Verification method: TBD\n\n`;
+              sectionContent += `---\n\n`;
+            } else if (doc.raw_content) {
               sectionContent += `${doc.raw_content}\n\n---\n\n`;
             }
           }
         }
+      } else if (section.section_key === 'findings' && documents) {
+        sectionContent = `## Plan of Action & Milestones\n\n`;
+        sectionContent += `| Finding | Control Reference | Risk Level | Remediation Owner | Due Date | Status |\n`;
+        sectionContent += `|---|---|---|---|---|---|\n`;
+        for (const doc of documents) {
+          const controlRef = doc.metadata?.control_id || doc.metadata?.practice_id || doc.title;
+          sectionContent += `| [Finding description] | ${controlRef} | High/Med/Low | TBD | TBD | Open |\n`;
+        }
+        sectionContent += '\n';
       } else if (section.section_key === 'checklist' && documents) {
         sectionContent = `## Compliance Checklist\n\n`;
         for (const doc of documents) {
@@ -136,7 +162,9 @@ Deno.serve(async (req: Request) => {
     const { data: savedDoc, error: saveError } = await supabase
       .from('generated_documents')
       .insert({
-        title: `${template.name} - ${new Date().toLocaleDateString()}`,
+        title: selected_family && template.template_type === 'procedure'
+          ? `${framework?.name} ${selected_family} Procedures - ${new Date().toLocaleDateString()}`
+          : `${template.name} - ${new Date().toLocaleDateString()}`,
         framework_id,
         template_id,
         content_markdown,
