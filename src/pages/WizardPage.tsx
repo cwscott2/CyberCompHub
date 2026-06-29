@@ -422,7 +422,13 @@ export default function WizardPage() {
               <textarea
                 value={customScope}
                 onChange={(e) => setCustomScope(e.target.value)}
-                placeholder="Describe the specific scope or context for this document..."
+                placeholder={
+                  selectedFrameworkObj?.abbreviation === 'NIST RMF'
+                    ? 'Optionally scope to a specific RMF step (e.g. "Prepare step only") or describe the context for this document...'
+                    : isFamilyScoped
+                    ? 'Optionally add additional context or constraints beyond the selected control family...'
+                    : 'Optionally scope to a specific control family (e.g. "Access Control") or describe the context for this document...'
+                }
                 className="input h-24 resize-none"
               />
             </div>
