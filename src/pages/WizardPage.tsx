@@ -268,7 +268,7 @@ export default function WizardPage() {
                 <h4 className="text-xs font-semibold text-secondary-500 uppercase tracking-wider mb-3">
                   {FRAMEWORK_GROUPS[group].label}
                 </h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                   {groupFrameworks.map((framework) => (
                     <button
                       key={framework.id}
