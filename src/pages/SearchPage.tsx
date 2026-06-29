@@ -196,7 +196,7 @@ export default function SearchPage() {
                   rel="noopener noreferrer"
                   className="text-primary-600 hover:underline text-sm"
                 >
-                  View Original
+                  View Framework Source
                 </a>
               )}
               <div className="mt-4 space-y-2 text-sm">

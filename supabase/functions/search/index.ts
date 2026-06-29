@@ -9,15 +9,31 @@ const corsHeaders = {
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+const openaiApiKey = Deno.env.get('OPENAI_API_KEY')!;
 
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 interface SearchRequest {
   query: string;
   framework_id?: string;
-  document_type?: string;
   limit?: number;
-  threshold?: number;
+}
+
+async function generateEmbedding(text: string): Promise<number[]> {
+  const response = await fetch('https://api.openai.com/v1/embeddings', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${openaiApiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'text-embedding-3-small',
+      input: text.slice(0, 8000),
+    }),
+  });
+  if (!response.ok) throw new Error(`Embedding failed: ${response.statusText}`);
+  const data = await response.json();
+  return data.data[0].embedding;
 }
 
 Deno.serve(async (req: Request) => {
@@ -26,7 +42,7 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const { query, framework_id, document_type, limit = 20 }: SearchRequest = await req.json();
+    const { query, framework_id, limit = 20 }: SearchRequest = await req.json();
 
     if (!query) {
       return new Response(
@@ -35,102 +51,34 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Build the search query
-    let dbQuery = supabase
-      .from('documents')
-      .select(`
-        id,
-        title,
-        document_type,
-        url,
-        version,
-        published_date,
-        raw_content,
-        metadata,
-        created_at,
-        updated_at,
-        framework_id,
-        compliance_frameworks!inner(id, name, abbreviation, category),
-        sources!inner(id, name)
-      `)
-      .textSearch('title', query, { type: 'websearch', config: 'english' })
-      .limit(limit);
+    const queryEmbedding = await generateEmbedding(query);
 
-    if (framework_id) {
-      dbQuery = dbQuery.eq('framework_id', framework_id);
-    }
-
-    if (document_type) {
-      dbQuery = dbQuery.eq('document_type', document_type);
-    }
-
-    const { data: documents, error: searchError } = await dbQuery;
+    const { data: chunks, error: searchError } = await supabase.rpc('match_documents', {
+      query_embedding: queryEmbedding,
+      match_threshold: 0.2,
+      match_count: limit,
+      framework_filter: framework_id ?? null,
+    });
 
     if (searchError) {
-      console.error('Search error:', searchError);
+      console.error('Vector search error:', searchError);
       return new Response(
-        JSON.stringify({ error: 'Search failed' }),
+        JSON.stringify({ error: 'Search failed', details: searchError.message }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Also search in content if available
-    let contentResults: any[] = [];
-    if (query && query.length > 3) {
-      const { data: contentMatches } = await supabase
-        .from('documents')
-        .select(`
-          id,
-          title,
-          document_type,
-          url,
-          version,
-          published_date,
-          raw_content,
-          metadata,
-          created_at,
-          updated_at,
-          framework_id,
-          compliance_frameworks!inner(id, name, abbreviation, category),
-          sources!inner(id, name)
-        `)
-        .ilike('raw_content', `%${query}%`)
-        .limit(limit);
-
-      if (contentMatches) {
-        contentResults = contentMatches;
-      }
-    }
-
-    // Combine and deduplicate results
-    const seenIds = new Set<string>();
-    const allResults = [...(documents || []), ...contentResults].filter((doc) => {
-      if (seenIds.has(doc.id)) return false;
-      seenIds.add(doc.id);
-      return true;
-    });
-
-    // Transform results
-    const results = allResults.map((doc: any) => ({
-      id: doc.id,
-      title: doc.title,
-      document_type: doc.document_type,
-      url: doc.url,
-      version: doc.version,
-      published_date: doc.published_date,
-      raw_content: doc.raw_content,
-      metadata: doc.metadata,
-      framework: doc.compliance_frameworks ? {
-        id: doc.compliance_frameworks.id,
-        name: doc.compliance_frameworks.name,
-        abbreviation: doc.compliance_frameworks.abbreviation,
-        category: doc.compliance_frameworks.category,
-      } : null,
-      source: doc.sources ? {
-        id: doc.sources.id,
-        name: doc.sources.name,
-      } : null,
-      relevance_score: doc.title?.toLowerCase().includes(query.toLowerCase()) ? 1.0 : 0.7,
+    const results = (chunks ?? []).map((chunk: any) => ({
+      id: chunk.id,
+      title: chunk.document_title,
+      document_type: chunk.metadata?.document_type ?? 'control',
+      url: chunk.url,
+      raw_content: chunk.content,
+      metadata: chunk.metadata,
+      relevance_score: chunk.similarity,
+      framework: {
+        abbreviation: chunk.framework_abbreviation,
+      },
     }));
 
     return new Response(
@@ -140,7 +88,7 @@ Deno.serve(async (req: Request) => {
   } catch (error) {
     console.error('Search error:', error);
     return new Response(
-      JSON.stringify({ error: 'Internal server error' }),
+      JSON.stringify({ error: 'Internal server error', details: error.message }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

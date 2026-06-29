@@ -9,8 +9,38 @@ const corsHeaders = {
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+const openaiApiKey = Deno.env.get('OPENAI_API_KEY')!;
 
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+async function generateEmbedding(text: string): Promise<number[]> {
+  const response = await fetch('https://api.openai.com/v1/embeddings', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${openaiApiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'text-embedding-3-small',
+      input: text.slice(0, 8000),
+    }),
+  });
+  if (!response.ok) throw new Error(`Embedding failed: ${response.statusText}`);
+  const data = await response.json();
+  return data.data[0].embedding;
+}
+
+async function insertChunk(documentId: string, content: string, metadata: Record<string, unknown>) {
+  const embedding = await generateEmbedding(content);
+  const { error } = await supabase.from('document_chunks').insert({
+    document_id: documentId,
+    chunk_index: 0,
+    content,
+    metadata,
+    embedding,
+  });
+  if (error) console.error('Chunk insert error:', error.message);
+}
 
 // NIST CSF 2.0 Core Functions and Categories
 const NIST_CSF_DATA = {
@@ -324,21 +354,24 @@ Deno.serve(async (req: Request) => {
     // Process each core function
     for (const coreFunction of NIST_CSF_DATA.core_functions) {
       // Create a document for the core function
-      await supabase.from('documents').insert({
+      const fnContent = `# ${coreFunction.name} Function\n\n${coreFunction.description}\n\nAbbreviation: ${coreFunction.abbreviation}`;
+      const fnMeta = {
+        function_name: coreFunction.name,
+        function_abbreviation: coreFunction.abbreviation,
+        version: NIST_CSF_DATA.version,
+      };
+      const { data: fnDoc } = await supabase.from('documents').insert({
         source_id: source.id,
         framework_id: framework.id,
         title: `NIST CSF 2.0 - ${coreFunction.name} Function`,
         document_type: 'framework',
         url: 'https://www.nist.gov/cyberframework',
         version: NIST_CSF_DATA.version,
-        raw_content: `# ${coreFunction.name} Function\n\n${coreFunction.description}\n\nAbbreviation: ${coreFunction.abbreviation}`,
-        metadata: {
-          function_name: coreFunction.name,
-          function_abbreviation: coreFunction.abbreviation,
-          version: NIST_CSF_DATA.version,
-        },
+        raw_content: fnContent,
+        metadata: fnMeta,
         is_indexed: true,
-      });
+      }).select('id').single();
+      if (fnDoc) await insertChunk(fnDoc.id, fnContent, fnMeta);
       documentsIngested++;
 
       // Process each category within the function
@@ -356,7 +389,14 @@ ${coreFunction.name} (${coreFunction.abbreviation})
 ${category.subcategories.map(sub => `- **${sub.id}**: ${sub.description}`).join('\n')}
 `;
 
-        await supabase.from('documents').insert({
+        const catMeta = {
+          category_id: category.id,
+          category_name: category.name,
+          function_name: coreFunction.name,
+          function_abbreviation: coreFunction.abbreviation,
+          version: NIST_CSF_DATA.version,
+        };
+        const { data: catDoc } = await supabase.from('documents').insert({
           source_id: source.id,
           framework_id: framework.id,
           title: `${category.id} - ${category.name}`,
@@ -364,15 +404,10 @@ ${category.subcategories.map(sub => `- **${sub.id}**: ${sub.description}`).join(
           url: 'https://www.nist.gov/cyberframework',
           version: NIST_CSF_DATA.version,
           raw_content: categoryContent,
-          metadata: {
-            category_id: category.id,
-            category_name: category.name,
-            function_name: coreFunction.name,
-            function_abbreviation: coreFunction.abbreviation,
-            version: NIST_CSF_DATA.version,
-          },
+          metadata: catMeta,
           is_indexed: true,
-        });
+        }).select('id').single();
+        if (catDoc) await insertChunk(catDoc.id, categoryContent, catMeta);
         documentsIngested++;
 
         // Process each subcategory as a control
@@ -392,7 +427,15 @@ ${subcategory.description}
 Organizations should implement appropriate controls and processes to address this requirement based on their risk profile and business objectives.
 `;
 
-          await supabase.from('documents').insert({
+          const ctrlMeta = {
+            control_id: subcategory.id,
+            category_id: category.id,
+            category_name: category.name,
+            function_name: coreFunction.name,
+            function_abbreviation: coreFunction.abbreviation,
+            version: NIST_CSF_DATA.version,
+          };
+          const { data: ctrlDoc } = await supabase.from('documents').insert({
             source_id: source.id,
             framework_id: framework.id,
             title: `${subcategory.id} - ${subcategory.description.slice(0, 80)}...`,
@@ -400,16 +443,10 @@ Organizations should implement appropriate controls and processes to address thi
             url: 'https://www.nist.gov/cyberframework',
             version: NIST_CSF_DATA.version,
             raw_content: controlContent,
-            metadata: {
-              control_id: subcategory.id,
-              category_id: category.id,
-              category_name: category.name,
-              function_name: coreFunction.name,
-              function_abbreviation: coreFunction.abbreviation,
-              version: NIST_CSF_DATA.version,
-            },
+            metadata: ctrlMeta,
             is_indexed: true,
-          });
+          }).select('id').single();
+          if (ctrlDoc) await insertChunk(ctrlDoc.id, controlContent, ctrlMeta);
           documentsIngested++;
         }
       }

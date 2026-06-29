@@ -9,6 +9,8 @@ const corsHeaders = {
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+const anthropicApiKey = Deno.env.get('ANTHROPIC_API_KEY')!;
+const openaiApiKey = Deno.env.get('OPENAI_API_KEY')!;
 
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
@@ -16,6 +18,27 @@ interface ChatRequest {
   message: string;
   framework_id?: string;
   history?: Array<{ role: 'user' | 'assistant'; content: string }>;
+}
+
+async function generateEmbedding(text: string): Promise<number[]> {
+  const response = await fetch('https://api.openai.com/v1/embeddings', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${openaiApiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'text-embedding-3-small',
+      input: text.slice(0, 8000),
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`OpenAI embedding failed: ${response.statusText}`);
+  }
+
+  const data = await response.json();
+  return data.data[0].embedding;
 }
 
 Deno.serve(async (req: Request) => {
@@ -33,96 +56,106 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Search for relevant documents using vector similarity
-    let query = supabase
-      .from('document_chunks')
-      .select(`
-        id,
-        content,
-        metadata,
-        documents!inner(
-          id,
-          title,
-          url,
-          framework_id,
-          document_type,
-          compliance_frameworks!inner(id, name, abbreviation)
-        )
-      `)
-      .limit(10);
+    // Generate embedding for the user's query
+    const queryEmbedding = await generateEmbedding(message);
 
-    if (framework_id) {
-      query = query.eq('documents.framework_id', framework_id);
-    }
-
-    const { data: chunks, error: searchError } = await query;
+    // Vector similarity search via the match_documents RPC
+    const { data: chunks, error: searchError } = await supabase.rpc('match_documents', {
+      query_embedding: queryEmbedding,
+      match_threshold: 0.3,
+      match_count: 8,
+      framework_filter: framework_id ?? null,
+    });
 
     if (searchError) {
-      console.error('Search error:', searchError);
-      // Continue without context if search fails
+      console.error('Vector search error:', searchError);
     }
 
-    // Build context from relevant chunks
-    const context = chunks?.map((chunk: any) => ({
-      content: chunk.content,
-      document_title: chunk.documents.title,
-      framework: chunk.documents.compliance_frameworks?.abbreviation,
-      url: chunk.documents.url,
-      control_id: chunk.metadata?.control_id,
-    })) || [];
-
-    // Build the system prompt
-    const systemPrompt = `You are an expert compliance advisor specializing in cybersecurity frameworks including NIST CSF, NIST RMF, ISO 27001, FedRAMP, CMMC, and SOX. You help users understand compliance requirements, controls, and best practices.
-
-When answering questions:
-1. Be precise and reference specific controls or requirements when available
-2. Explain concepts clearly for both technical and non-technical users
-3. Suggest related controls or frameworks when relevant
-4. If you don't know something, say so rather than making things up
-
-${context.length > 0 ? `Context from compliance documents:\n${context.map((c, i) => `[${i + 1}] ${c.framework} - ${c.document_title}${c.control_id ? ` (${c.control_id})` : ''}:\n${c.content}`).join('\n\n')}` : 'No relevant documents found in the knowledge base.'}`;
-
-    // For now, return a simulated response (in production, call Claude API)
-    // This will be replaced with actual LLM call when ANTHROPIC_API_KEY is configured
-    const citations = context.slice(0, 5).map((c: any) => ({
-      document_title: c.document_title,
-      framework_name: c.framework,
-      url: c.url,
-      content_snippet: c.content.slice(0, 200),
+    // Build citations and context from matched chunks
+    const citations = (chunks ?? []).slice(0, 5).map((chunk: any) => ({
+      document_title: chunk.document_title,
+      framework_name: chunk.framework_abbreviation,
+      control_id: chunk.metadata?.control_id ?? null,
+      url: chunk.url,
+      content_snippet: chunk.content.slice(0, 200),
     }));
 
-    // Stream response
+    const contextBlock = (chunks ?? []).length > 0
+      ? `Relevant compliance documentation:\n\n${(chunks as any[]).map((chunk, i) =>
+          `[${i + 1}] ${chunk.framework_abbreviation} — ${chunk.document_title}${chunk.metadata?.control_id ? ` (${chunk.metadata.control_id})` : ''}\n${chunk.content}`
+        ).join('\n\n')}`
+      : 'No relevant documents found in the knowledge base for this query.';
+
+    const systemPrompt = `You are a cybersecurity compliance expert assistant. Answer questions using ONLY the provided compliance framework documentation. Always cite the specific control ID, framework name, and section for every claim you make. If the documentation does not contain enough information to answer, say so explicitly — do not hallucinate control requirements.
+
+${contextBlock}`;
+
+    const messages: Anthropic.MessageParam[] = [
+      ...history.map((h) => ({ role: h.role, content: h.content })),
+      { role: 'user', content: message },
+    ];
+
+    // Call Anthropic API directly with streaming
+    const anthropicResponse = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'x-api-key': anthropicApiKey,
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 1024,
+        stream: true,
+        system: systemPrompt,
+        messages,
+      }),
+    });
+
+    if (!anthropicResponse.ok || !anthropicResponse.body) {
+      const err = await anthropicResponse.text();
+      throw new Error(`Anthropic API error: ${err}`);
+    }
+
     const stream = new ReadableStream({
       async start(controller) {
         const encoder = new TextEncoder();
 
-        // Send citations first
+        // Send citations before streaming starts
         controller.enqueue(
           encoder.encode(`data: ${JSON.stringify({ type: 'citations', citations })}\n\n`)
         );
 
-        // Simulated response based on context
-        let response = '';
+        const reader = anthropicResponse.body!.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
 
-        if (context.length > 0) {
-          response = `Based on the compliance documentation, here's what I found:\n\n`;
-          context.slice(0, 3).forEach((c: any, i: number) => {
-            response += `**${c.framework} - ${c.document_title}**\n`;
-            if (c.control_id) response += `Control: ${c.control_id}\n`;
-            response += `${c.content.slice(0, 500)}...\n\n`;
-          });
-          response += `\nWould you like me to elaborate on any of these points or search for more specific requirements?`;
-        } else {
-          response = `I don't have specific documents matching your query in the knowledge base yet. The system may need to ingest compliance documents first, or you could try rephrasing your question.\n\nIn the meantime, I can provide general guidance on ${framework_id ? 'the selected framework' : 'compliance frameworks'} if you have specific questions.`;
-        }
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
 
-        // Stream the response character by character
-        for (let i = 0; i < response.length; i += 10) {
-          const chunk = response.slice(i, i + 10);
-          controller.enqueue(
-            encoder.encode(`data: ${JSON.stringify({ type: 'content', text: chunk })}\n\n`)
-          );
-          await new Promise((r) => setTimeout(r, 5));
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() ?? '';
+
+          for (const line of lines) {
+            if (!line.startsWith('data: ')) continue;
+            const data = line.slice(6).trim();
+            if (data === '[DONE]') continue;
+            try {
+              const event = JSON.parse(data);
+              if (
+                event.type === 'content_block_delta' &&
+                event.delta?.type === 'text_delta'
+              ) {
+                controller.enqueue(
+                  encoder.encode(
+                    `data: ${JSON.stringify({ type: 'content', text: event.delta.text })}\n\n`
+                  )
+                );
+              }
+            } catch { /* skip malformed lines */ }
+          }
         }
 
         controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'done' })}\n\n`));
@@ -141,7 +174,7 @@ ${context.length > 0 ? `Context from compliance documents:\n${context.map((c, i)
   } catch (error) {
     console.error('Chat error:', error);
     return new Response(
-      JSON.stringify({ error: 'Internal server error' }),
+      JSON.stringify({ error: 'Internal server error', details: error.message }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
