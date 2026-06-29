@@ -14,7 +14,8 @@ const FAMILY_FIELD_MAP: Record<string, string> = {
   'NIST RMF': 'category',
 };
 
-const FAMILY_SCOPED_TYPES = ['procedure', 'gap_assessment'];
+const FAMILY_SCOPED_TYPES = ['procedure', 'gap_assessment', 'policy'];
+const FAMILY_REQUIRED_TYPES = ['procedure', 'gap_assessment'];
 
 const categoryToGroup = (category: string): 'security' | 'ai' | 'financial' => {
   if (category === 'ai-safety') return 'ai';
@@ -57,6 +58,10 @@ export default function WizardPage() {
   const selectedTemplateObj = templates.find(t => t.id === selectedTemplate);
   const isFamilyScoped = selectedTemplateObj
     ? FAMILY_SCOPED_TYPES.includes(selectedTemplateObj.template_type)
+    : false;
+
+  const isFamilyRequired = selectedTemplateObj
+    ? FAMILY_REQUIRED_TYPES.includes(selectedTemplateObj.template_type)
     : false;
 
   const selectedFrameworkObj = frameworks.find(f => f.id === selectedFramework);
@@ -383,12 +388,15 @@ export default function WizardPage() {
             {isFamilyScoped && (
               <div>
                 <label className="block text-sm font-medium text-secondary-700 mb-2">
-                  Control Family <span className="text-red-500">*</span>
+                  Control Family {isFamilyRequired && <span className="text-red-500">*</span>}
+                  {!isFamilyRequired && <span className="text-secondary-400 font-normal"> (optional)</span>}
                 </label>
                 {availableFamilies.length > 0 ? (
                   <>
                     <p className="text-sm text-secondary-600 mb-2">
-                      Select the control family to generate procedures for.
+                      {isFamilyRequired
+                        ? 'Select the control family to generate procedures for.'
+                        : 'Optionally scope this document to a single control family, or leave blank for a full-framework policy.'}
                     </p>
                     <select
                       value={selectedFamily}
@@ -458,7 +466,7 @@ export default function WizardPage() {
             </button>
             <button
               onClick={handleGenerate}
-              disabled={isFamilyScoped && !selectedFamily}
+              disabled={isFamilyRequired && !selectedFamily}
               className="btn-primary disabled:opacity-50"
             >
               Generate Document
