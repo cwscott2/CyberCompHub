@@ -295,12 +295,21 @@ export default function WizardPage() {
                           : 'border-secondary-200'
                       }`}
                     >
-                      <h4 className="font-medium text-secondary-900">
-                        {framework.name}
-                      </h4>
-                      <p className="text-sm text-secondary-600 mt-1">
-                        {framework.description || framework.abbreviation}
-                      </p>
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <h4 className="font-medium text-secondary-900 mb-1">
+                            {framework.name}
+                          </h4>
+                          <p className="text-sm text-secondary-600">
+                            {framework.description || framework.abbreviation}
+                          </p>
+                        </div>
+                        {framework.version && (
+                          <span className="badge bg-secondary-100 text-secondary-700 ml-2 shrink-0">
+                            v{framework.version}
+                          </span>
+                        )}
+                      </div>
                     </button>
                   ))}
                 </div>
