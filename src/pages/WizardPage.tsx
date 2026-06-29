@@ -289,7 +289,7 @@ export default function WizardPage() {
                         setSelectedFramework(framework.id);
                         setStep('template');
                       }}
-                      className={`p-4 rounded-lg border-2 text-left transition-all hover:border-primary-500 h-full ${
+                      className={`p-4 rounded-lg border-2 text-left transition-all hover:border-primary-500 h-full flex flex-col justify-start ${
                         selectedFramework === framework.id
                           ? 'border-primary-500 bg-primary-50'
                           : 'border-secondary-200'
