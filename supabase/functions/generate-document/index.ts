@@ -28,6 +28,7 @@ const ALLOWED_FAMILY_FIELDS = new Set([
   'function_name',
   'annex_name',
   'category',
+  'step_name',
 ]);
 
 Deno.serve(async (req: Request) => {
