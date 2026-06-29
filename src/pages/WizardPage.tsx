@@ -22,10 +22,20 @@ const categoryToGroup = (category: string): 'security' | 'ai' | 'financial' => {
   return 'security';
 };
 
-const FRAMEWORK_GROUPS: Record<string, { label: string }> = {
-  security:  { label: 'Cybersecurity' },
-  financial: { label: 'Financial Compliance' },
-  ai:        { label: 'AI Governance' },
+const FRAMEWORK_GROUPS: Record<string, { label: string; icon: string; accent: string }> = {
+  security:  { label: 'Cybersecurity Frameworks', icon: '🛡️', accent: 'border-primary-200 bg-primary-50' },
+  financial: { label: 'Financial Compliance',      icon: '📋', accent: 'border-amber-200 bg-amber-50' },
+  ai:        { label: 'AI Governance Frameworks',  icon: '🤖', accent: 'border-purple-200 bg-purple-50' },
+};
+
+const TEMPLATE_TYPE_LABELS: Record<string, string> = {
+  policy:       'Policy',
+  checklist:    'Checklist',
+  procedure:    'Procedure',
+  poam:         'POA&M',
+  gap_assessment: 'Gap Assessment',
+  'control-map': 'Control Map',
+  raci:         'RACI',
 };
 
 export default function WizardPage() {
@@ -265,9 +275,12 @@ export default function WizardPage() {
             if (groupFrameworks.length === 0) return null;
             return (
               <div key={group} className="mb-6 last:mb-0">
-                <h4 className="text-xs font-semibold text-secondary-500 uppercase tracking-wider mb-3">
-                  {FRAMEWORK_GROUPS[group].label}
-                </h4>
+                <div className={`flex items-center gap-2 mb-3 px-3 py-2 rounded-lg border ${FRAMEWORK_GROUPS[group].accent} w-fit`}>
+                  <span className="text-base">{FRAMEWORK_GROUPS[group].icon}</span>
+                  <h4 className="text-xs font-semibold text-secondary-700 uppercase tracking-wide">
+                    {FRAMEWORK_GROUPS[group].label}
+                  </h4>
+                </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                   {groupFrameworks.map((framework) => (
                     <button
@@ -323,8 +336,8 @@ export default function WizardPage() {
                     <h4 className="font-medium text-secondary-900">
                       {template.name}
                     </h4>
-                    <span className="badge bg-secondary-100 text-secondary-700 capitalize">
-                      {template.template_type}
+                    <span className="badge bg-secondary-100 text-secondary-700">
+                      {TEMPLATE_TYPE_LABELS[template.template_type] ?? template.template_type}
                     </span>
                   </div>
                   {template.description && (
