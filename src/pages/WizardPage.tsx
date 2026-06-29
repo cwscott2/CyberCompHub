@@ -14,10 +14,33 @@ export default function WizardPage() {
   const [customScope, setCustomScope] = useState('');
   const [selectedControls, setSelectedControls] = useState<string[]>([]);
   const [availableControls, setAvailableControls] = useState<string[]>([]);
+  const [selectedFamily, setSelectedFamily] = useState<string>('');
+  const [availableFamilies, setAvailableFamilies] = useState<string[]>([]);
   const [generating, setGenerating] = useState(false);
   const [generatedContent, setGeneratedContent] = useState<string>('');
   const [generatedDocId, setGeneratedDocId] = useState<string>('');
   const [exporting, setExporting] = useState(false);
+
+  const FAMILY_FIELD_MAP: Record<string, string> = {
+    'CMMC': 'domain_name',
+    'SP 800-53': 'family_name',
+    'NIST CSF': 'function_name',
+    'ISO 27001': 'annex_name',
+    'NIST RMF': 'category',
+  };
+
+  const FAMILY_SCOPED_TYPES = ['procedure', 'gap_assessment'];
+
+  const selectedTemplateObj = templates.find(t => t.id === selectedTemplate);
+  const isFamilyScoped = selectedTemplateObj
+    ? FAMILY_SCOPED_TYPES.includes(selectedTemplateObj.template_type)
+    : false;
+
+  const selectedFrameworkObj = frameworks.find(f => f.id === selectedFramework);
+  const familyField = selectedFrameworkObj
+    ? (FAMILY_FIELD_MAP[selectedFrameworkObj.abbreviation] ||
+       (selectedFrameworkObj.name === 'FedRAMP Moderate' ? 'family_name' : ''))
+    : '';
 
   useEffect(() => {
     supabase
@@ -62,6 +85,28 @@ export default function WizardPage() {
     }
   }, [selectedFramework]);
 
+  useEffect(() => {
+    if (selectedFramework && isFamilyScoped && familyField) {
+      setSelectedFamily('');
+      supabase
+        .from('documents')
+        .select('metadata')
+        .eq('framework_id', selectedFramework)
+        .eq('document_type', 'control')
+        .then(({ data }) => {
+          if (data) {
+            const families = data
+              .map((d) => d.metadata?.[familyField] as string)
+              .filter(Boolean);
+            setAvailableFamilies([...new Set(families)].sort());
+          }
+        });
+    } else {
+      setAvailableFamilies([]);
+      setSelectedFamily('');
+    }
+  }, [selectedFramework, selectedTemplate, isFamilyScoped, familyField]);
+
   const handleGenerate = async () => {
     setGenerating(true);
     setStep('generate');
@@ -80,6 +125,8 @@ export default function WizardPage() {
             template_id: selectedTemplate,
             custom_scope: customScope || null,
             selected_controls: selectedControls.length > 0 ? selectedControls : null,
+            selected_family: selectedFamily || null,
+            family_metadata_field: (selectedFamily && familyField) ? familyField : null,
           }),
         }
       );
@@ -288,6 +335,26 @@ export default function WizardPage() {
             Customize Scope
           </h3>
           <div className="space-y-6">
+            {isFamilyScoped && availableFamilies.length > 0 && (
+              <div>
+                <label className="block text-sm font-medium text-secondary-700 mb-2">
+                  Control Family <span className="text-red-500">*</span>
+                </label>
+                <p className="text-sm text-secondary-600 mb-2">
+                  Select the control family to generate procedures for.
+                </p>
+                <select
+                  value={selectedFamily}
+                  onChange={(e) => setSelectedFamily(e.target.value)}
+                  className="input"
+                >
+                  <option value="">— Select a family —</option>
+                  {availableFamilies.map((family) => (
+                    <option key={family} value={family}>{family}</option>
+                  ))}
+                </select>
+              </div>
+            )}
             <div>
               <label className="block text-sm font-medium text-secondary-700 mb-2">
                 Custom Scope (Optional)
@@ -336,7 +403,11 @@ export default function WizardPage() {
             <button onClick={() => setStep('template')} className="btn-secondary">
               Back
             </button>
-            <button onClick={handleGenerate} className="btn-primary">
+            <button
+              onClick={handleGenerate}
+              disabled={isFamilyScoped && !selectedFamily}
+              className="btn-primary disabled:opacity-50"
+            >
               Generate Document
             </button>
           </div>
@@ -394,6 +465,12 @@ export default function WizardPage() {
                 {templates.find(t => t.id === selectedTemplate)?.name ?? '—'}
               </span>
             </div>
+            {selectedFamily && (
+              <div>
+                <span className="text-primary-500 font-medium">Family: </span>
+                <span className="text-primary-900">{selectedFamily}</span>
+              </div>
+            )}
             {customScope && (
               <div>
                 <span className="text-primary-500 font-medium">Scope: </span>
