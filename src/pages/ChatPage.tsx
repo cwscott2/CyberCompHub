@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import ReactMarkdown from 'react-markdown';
 import { supabase } from '../services/supabase';
 import type { ComplianceFramework, ChatMessage, Citation } from '../types/compliance';
 
@@ -206,12 +207,15 @@ export default function ChatPage() {
                 <div
                   className={`max-w-[80%] rounded-lg px-4 py-2 ${
                     message.role === 'user'
-                      ? 'bg-primary-600 text-white'
+                      ? 'bg-secondary-800 text-white'
                       : 'bg-secondary-100 text-secondary-900'
                   }`}
                 >
-                  <div className="prose prose-sm max-w-none">
-                    {message.content}
+                  <div className={`prose prose-sm max-w-none ${message.role === 'user' ? 'prose-invert' : ''}`}>
+                    {message.role === 'user'
+                      ? message.content
+                      : <ReactMarkdown>{message.content}</ReactMarkdown>
+                    }
                   </div>
                   {message.citations && message.citations.length > 0 && (
                     <div className="mt-2 pt-2 border-t border-secondary-200 space-y-1">
@@ -219,14 +223,24 @@ export default function ChatPage() {
                         Sources:
                       </p>
                       {message.citations.map((citation, idx) => (
-                        <div key={idx} className="text-xs text-secondary-600">
-                          <span className="font-medium">{citation.framework_name}</span>
+                        <div key={idx} className="text-xs text-secondary-600 flex flex-wrap items-center gap-1">
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-primary-100 text-primary-800">
+                            {citation.framework_name}
+                          </span>
+                          {citation.related_frameworks?.map((fw: string) => (
+                            <span key={fw} className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800">
+                              {fw}
+                            </span>
+                          ))}
+                          {citation.document_title && (
+                            <span className="text-secondary-500 truncate max-w-xs">{citation.document_title}</span>
+                          )}
                           {citation.url && (
                             <a
                               href={citation.url}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="ml-1 text-primary-600 hover:underline"
+                              className="text-primary-600 hover:underline shrink-0"
                             >
                               View
                             </a>

@@ -334,7 +334,7 @@ Deno.serve(async (req: Request) => {
         const { data: practiceDoc } = await supabase.from('documents').insert({
           source_id: source.id,
           framework_id: framework.id,
-          title: `${practice.id} — ${practice.description.slice(0, 70)}...`,
+          title: `${practice.id} — ${practice.description}`,
           document_type: 'control',
           url: 'https://dodcio.defense.gov/CMMC/Model/',
           version: '2.0',

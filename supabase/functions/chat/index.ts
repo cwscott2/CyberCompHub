@@ -56,34 +56,128 @@ Deno.serve(async (req: Request) => {
       );
     }
 
+    // Known framework abbreviations — used to detect named frameworks in the query
+    const KNOWN_FRAMEWORKS: Record<string, string> = {
+      'eu ai act': 'EU AI Act',
+      'nist ai 100-1': 'NIST AI 100-1',
+      'nist ai rmf': 'NIST AI RMF',
+      'nist csf': 'NIST CSF',
+      'nist rmf': 'NIST RMF',
+      'sp 800-53': 'SP 800-53',
+      '800-53': 'SP 800-53',
+      'cmmc': 'CMMC',
+      'iso 27001': 'ISO 27001',
+      'iso 42001': 'ISO 42001',
+      'fedramp': 'FedRAMP',
+      'sox': 'SOX',
+      'mitre atlas': 'MITRE ATLAS',
+      'dod ai': 'DoD AI Ethics',
+      'oecd ai': 'OECD AI Principles',
+    };
+
+    const messageLower = message.toLowerCase();
+    const mentionedFrameworks = Object.entries(KNOWN_FRAMEWORKS)
+      .filter(([key]) => messageLower.includes(key))
+      .map(([, abbrev]) => abbrev);
+
     // Generate embedding for the user's query
     const queryEmbedding = await generateEmbedding(message);
 
-    // Vector similarity search via the match_documents RPC
-    const { data: chunks, error: searchError } = await supabase.rpc('match_documents', {
-      query_embedding: queryEmbedding,
-      match_threshold: 0.3,
-      match_count: 8,
-      framework_filter: framework_id ?? null,
-    });
+    let chunks: any[] = [];
 
-    if (searchError) {
-      console.error('Vector search error:', searchError);
+    if (!framework_id && mentionedFrameworks.length >= 2) {
+      // Look up framework UUIDs for each mentioned framework
+      const { data: frameworkRows } = await supabase
+        .from('compliance_frameworks')
+        .select('id, abbreviation')
+        .in('abbreviation', mentionedFrameworks);
+
+      const frameworkIdMap: Record<string, string> = Object.fromEntries(
+        (frameworkRows ?? []).map((f: any) => [f.abbreviation, f.id])
+      );
+
+      // Search each framework separately using its UUID as the filter
+      const perFrameworkResults = await Promise.all(
+        mentionedFrameworks.map((abbrev) =>
+          supabase.rpc('match_documents', {
+            query_embedding: queryEmbedding,
+            match_threshold: 0.1,
+            match_count: 6,
+            framework_filter: frameworkIdMap[abbrev] ?? null,
+          }).then(({ data }) => data ?? [])
+        )
+      );
+
+      // Interleave results so each framework gets equal representation
+      const maxLen = Math.max(...perFrameworkResults.map((r) => r.length));
+      for (let i = 0; i < maxLen; i++) {
+        for (const results of perFrameworkResults) {
+          if (results[i]) chunks.push(results[i]);
+        }
+      }
+    } else {
+      // Standard search — single framework filter or no specific framework mentioned
+      const { data, error: searchError } = await supabase.rpc('match_documents', {
+        query_embedding: queryEmbedding,
+        match_threshold: 0.2,
+        match_count: 12,
+        framework_filter: framework_id ?? null,
+      });
+      if (searchError) console.error('Vector search error:', searchError);
+      chunks = data ?? [];
     }
 
-    // Build citations and context from matched chunks
-    const citations = (chunks ?? []).slice(0, 5).map((chunk: any) => ({
+    // Cross-framework clustering: for each result find similar docs from other frameworks
+    const seenIds = new Set(chunks.map((c: any) => c.id));
+    const crossFrameworkMap: Record<string, string[]> = {}; // doc id → related framework tags
+
+    if (!framework_id && chunks.length > 0) {
+      const crossResults = await Promise.all(
+        chunks.slice(0, 6).map((chunk: any) =>
+          supabase.rpc('match_documents', {
+            query_embedding: chunk.embedding ?? queryEmbedding,
+            match_threshold: 0.72,
+            match_count: 5,
+            framework_filter: null,
+          }).then(({ data }) =>
+            (data ?? []).filter(
+              (c: any) => c.id !== chunk.id && c.framework_abbreviation !== chunk.framework_abbreviation
+            )
+          )
+        )
+      );
+
+      chunks.slice(0, 6).forEach((chunk: any, i: number) => {
+        const related = crossResults[i] ?? [];
+        if (related.length > 0) {
+          crossFrameworkMap[chunk.id] = [...new Set(related.map((r: any) => r.framework_abbreviation))];
+          // Add unique related docs to chunk list for Claude's context
+          related.forEach((r: any) => {
+            if (!seenIds.has(r.id)) {
+              seenIds.add(r.id);
+              chunks.push(r);
+            }
+          });
+        }
+      });
+    }
+
+    // Build citations — include cross-framework tags where found
+    const citations = chunks.slice(0, 8).map((chunk: any) => ({
       document_title: chunk.document_title,
       framework_name: chunk.framework_abbreviation,
+      related_frameworks: crossFrameworkMap[chunk.id] ?? [],
       control_id: chunk.metadata?.control_id ?? null,
       url: chunk.url,
       content_snippet: chunk.content.slice(0, 200),
     }));
 
-    const contextBlock = (chunks ?? []).length > 0
-      ? `Relevant compliance documentation:\n\n${(chunks as any[]).map((chunk, i) =>
-          `[${i + 1}] ${chunk.framework_abbreviation} — ${chunk.document_title}${chunk.metadata?.control_id ? ` (${chunk.metadata.control_id})` : ''}\n${chunk.content}`
-        ).join('\n\n')}`
+    const contextBlock = chunks.length > 0
+      ? `Relevant compliance documentation:\n\n${chunks.map((chunk: any, i: number) => {
+          const related = crossFrameworkMap[chunk.id];
+          const alsoIn = related?.length ? ` [Also in: ${related.join(', ')}]` : '';
+          return `[${i + 1}] ${chunk.framework_abbreviation}${alsoIn} — ${chunk.document_title}${chunk.metadata?.control_id ? ` (${chunk.metadata.control_id})` : ''}\n${chunk.content}`;
+        }).join('\n\n')}`
       : 'No relevant documents found in the knowledge base for this query.';
 
     const systemPrompt = `You are a cybersecurity compliance expert assistant. Answer questions using ONLY the provided compliance framework documentation. Always cite the specific control ID, framework name, and section for every claim you make. If the documentation does not contain enough information to answer, say so explicitly — do not hallucinate control requirements.
@@ -105,7 +199,7 @@ ${contextBlock}`;
       },
       body: JSON.stringify({
         model: 'claude-haiku-4-5',
-        max_tokens: 1024,
+        max_tokens: 2048,
         stream: true,
         system: systemPrompt,
         messages,

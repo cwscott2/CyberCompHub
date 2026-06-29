@@ -138,6 +138,7 @@ export interface IngestJob {
   completed_at: string | null;
   created_at: string;
   source?: Source;
+  sources?: { name: string; compliance_frameworks?: { abbreviation: string; name: string } };
 }
 
 // Framework Mapping (cross-references)
@@ -167,13 +168,15 @@ export interface ChatMessage {
 }
 
 export interface Citation {
-  document_id: string;
+  document_id?: string;
   document_title: string;
-  chunk_id: string;
+  chunk_id?: string;
   content_snippet: string;
   url: string | null;
   framework_name: string;
-  relevance_score: number;
+  related_frameworks?: string[];
+  relevance_score?: number;
+  control_id?: string | null;
 }
 
 // Search types

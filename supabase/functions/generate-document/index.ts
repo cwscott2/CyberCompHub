@@ -65,10 +65,13 @@ Deno.serve(async (req: Request) => {
       .eq('framework_id', framework_id);
 
     if (selected_controls && selected_controls.length > 0) {
-      docQuery = docQuery.contains('metadata->control_id', selected_controls);
+      docQuery = docQuery.in('metadata->>practice_id', selected_controls);
     }
 
-    const { data: documents } = await docQuery.limit(20);
+    const { data: documents } = await docQuery
+      .eq('document_type', 'control')
+      .order('title')
+      .limit(200);
 
     // Build document content from template sections
     const sections: Record<string, string> = {};
@@ -97,10 +100,8 @@ Deno.serve(async (req: Request) => {
         sectionContent = `## Controls and Requirements\n\n`;
         for (const doc of documents) {
           if (doc.document_type === 'control' || doc.document_type === 'requirement') {
-            const controlId = doc.metadata?.control_id || '';
-            sectionContent += `### ${controlId ? controlId + ': ' : ''}${doc.title}\n\n`;
             if (doc.raw_content) {
-              sectionContent += `${doc.raw_content.slice(0, 1000)}\n\n`;
+              sectionContent += `${doc.raw_content}\n\n---\n\n`;
             }
           }
         }
@@ -108,8 +109,11 @@ Deno.serve(async (req: Request) => {
         sectionContent = `## Compliance Checklist\n\n`;
         for (const doc of documents) {
           if (doc.document_type === 'control' || doc.document_type === 'requirement') {
-            const controlId = doc.metadata?.control_id || '';
-            sectionContent += `- [ ] **${controlId}** - ${doc.title}\n`;
+            const practiceId = doc.metadata?.practice_id || doc.metadata?.control_id || '';
+            const description = doc.metadata?.description ||
+              doc.raw_content?.match(/## Requirement\n(.*)/)?.[1] ||
+              doc.title;
+            sectionContent += `- [ ] **${practiceId}** — ${description}\n`;
           }
         }
         sectionContent += '\n';

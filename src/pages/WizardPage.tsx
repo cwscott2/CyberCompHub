@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import ReactMarkdown from 'react-markdown';
 import { supabase } from '../services/supabase';
 import type { ComplianceFramework, Template } from '../types/compliance';
 
@@ -378,10 +379,31 @@ export default function WizardPage() {
           <h3 className="text-lg font-semibold text-secondary-900 mb-4">
             Document Generated
           </h3>
+
+          {/* Context reminder banner */}
+          <div className="bg-primary-50 border border-primary-200 rounded-lg px-4 py-3 mb-4 flex flex-wrap gap-4 text-sm">
+            <div>
+              <span className="text-primary-500 font-medium">Framework: </span>
+              <span className="text-primary-900">
+                {frameworks.find(f => f.id === selectedFramework)?.name ?? '—'}
+              </span>
+            </div>
+            <div>
+              <span className="text-primary-500 font-medium">Document type: </span>
+              <span className="text-primary-900 capitalize">
+                {templates.find(t => t.id === selectedTemplate)?.name ?? '—'}
+              </span>
+            </div>
+            {customScope && (
+              <div>
+                <span className="text-primary-500 font-medium">Scope: </span>
+                <span className="text-primary-900">{customScope}</span>
+              </div>
+            )}
+          </div>
+
           <div className="prose prose-sm max-w-none bg-secondary-50 rounded-lg p-4 mb-6 max-h-96 overflow-y-auto scrollbar-thin">
-            <pre className="whitespace-pre-wrap font-mono text-sm">
-              {generatedContent}
-            </pre>
+            <ReactMarkdown>{generatedContent}</ReactMarkdown>
           </div>
           <div className="flex items-center justify-between">
             <button

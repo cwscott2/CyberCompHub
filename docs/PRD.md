@@ -1,253 +1,241 @@
-# CyberComplianceHub - Product Requirements Document
+# CyberComplianceHub — Product Requirements Document
 
-## Overview
+**Version:** 1.2.0
+**Last Updated:** June 29, 2026
 
-**Product Name:** CyberComplianceHub
-**Version:** 1.0.0
-**Last Updated:** June 28, 2026
+---
 
-### Executive Summary
+## Executive Summary
 
-CyberComplianceHub is a smart compliance knowledge capability designed for compliance experts dealing with ISO standards, NIST publications, FedRAMP, CMMC, SOX, AI security/governance frameworks, and other cybersecurity compliance frameworks. The system provides AI-powered question answering, document search, and automated policy document generation.
+CyberComplianceHub is an AI-powered compliance knowledge hub for compliance officers, security engineers, auditors, and risk managers. It provides semantic search, AI-powered Q&A with citations, and automated generation of compliance artifacts (policies, checklists, procedures, assessments) across cybersecurity, AI governance, and financial compliance frameworks.
+
+---
 
 ## Problem Statement
 
-Compliance experts face several challenges:
-1. **Information Overload**: Multiple frameworks with thousands of controls across NIST, ISO, FedRAMP, CMMC, and SOX
-2. **Manual Document Creation**: Policies, checklists, and control mappings require significant manual effort
-3. **Keeping Current**: Frameworks are updated regularly, requiring continuous monitoring of official sources
-4. **Cross-Framework Mapping**: Understanding how controls map between frameworks (e.g., NIST CSF to ISO 27001) is time-consuming
+1. **Information Overload** — Multiple frameworks with thousands of controls across NIST, ISO, FedRAMP, CMMC, SOX, and AI governance standards
+2. **Manual Document Creation** — Policies, checklists, SSPs, and POA&Ms require significant manual effort
+3. **Cross-Framework Complexity** — Understanding how controls map between frameworks is time-consuming
+4. **Keeping Current** — Frameworks update regularly, requiring continuous monitoring
 
-## Solution
-
-A centralized knowledge hub that:
-1. Ingests and indexes compliance documents from multiple official sources
-2. Provides AI-powered Q&A with source citations
-3. Generates policy documents and checklists automatically
-4. Refreshes content monthly to stay current with framework updates
+---
 
 ## Target Users
 
-1. **Compliance Officers** - Managing organizational compliance posture
-2. **Security Engineers** - Implementing controls and documenting compliance
-3. **Auditors** - Reviewing evidence and control implementations
-4. **Risk Managers** - Assessing and managing cybersecurity risk
+| Role | Primary Use Case |
+|---|---|
+| Compliance Officers | Framework Q&A, gap assessments, policy generation |
+| Security Engineers | Control implementation guidance, procedure generation |
+| Auditors | Evidence checklists, control assessments |
+| Risk Managers | Cross-framework mapping, risk register generation |
+
+---
+
+## Frameworks Covered
+
+### Cybersecurity (Live)
+| Framework | Documents | Status |
+|---|---|---|
+| NIST SP 800-53 Rev 5 | 187 | Good ✓ |
+| CMMC Level 2 | 124 | Good ✓ |
+| ISO 27001:2022 | 104 | Good ✓ |
+| NIST CSF 2.0 | 98 | Good ✓ |
+| NIST RMF | 43 | Moderate |
+| FedRAMP Moderate | ~existing | Moderate (no embeddings) |
+
+### Financial Compliance (Live)
+| Framework | Documents | Status |
+|---|---|---|
+| SOX | 63 | Good ✓ |
+
+### AI Governance (Live)
+| Framework | Documents | Status |
+|---|---|---|
+| NIST AI RMF | 60 | Moderate |
+| ISO 42001 | 48 | Moderate |
+| EU AI Act | 23+ | Enhancing → Good |
+| NIST AI 100-1 | 17 | Thin → Queued |
+| MITRE ATLAS | 14 | Thin → Queued |
+| DoD AI Ethics | 14 | Thin → Queued |
+| OECD AI Principles | 14 | Thin → Queued |
+
+### Queued (Not Yet Built)
+- FedRAMP High (~421 controls)
+- FedRAMP Low (~125 controls)
+- FedRAMP Moderate embeddings
+- Singapore Model AI Governance
+- UNESCO AI Ethics Recommendation
+- G7 Hiroshima AI Process
+- UK AI Safety Institute Framework
+- Canada AIDA
+- China GenAI Regulation
+- Japan METI AI Guidelines
+- ISO/IEC 23894
+
+---
 
 ## Feature Requirements
 
-### 1. Multi-Framework Knowledge Base
+### 1. AI-Powered Chat (RAG Pipeline) — Live ✓
 
-**Priority:** P0 (MVP)
+Natural language Q&A with streaming responses and cited sources.
 
-The system must ingest and maintain documents from:
-- **NIST Cybersecurity Framework (CSF) 2.0** - Core functions, categories, subcategories
-- **NIST Risk Management Framework (RMF)** - Security controls, assessment procedures
-- **NIST SP 800-53** - Security and privacy controls catalog
-- **FedRAMP** - Cloud security baseline controls
-- **CMMC (Cybersecurity Maturity Model Certification)** - Defense Industrial Base requirements
-- **ISO/IEC 27001/27002** - Information security management standards
-- **SOX** - IT controls for financial reporting
-- **NIST AI RMF** - AI risk management guidance
-- **ISO/IEC 42001** - AI management system standard
+**Implemented:**
+- OpenAI text-embedding-3-small for query embeddings
+- pgvector cosine similarity search (match_documents RPC)
+- Claude Haiku for response generation (direct fetch, SSE streaming)
+- Multi-framework comparison: detects named frameworks in query, runs per-framework searches, interleaves results
+- Cross-framework clustering: finds semantically similar controls across frameworks, shows related framework tags
+- Markdown rendering in response window
+- Framework filter dropdown
 
 **Acceptance Criteria:**
-- System stores 100+ documents per framework
-- Full-text search returns relevant results within 2 seconds
-- Vector embeddings enable semantic search across all documents
+- ✓ Streaming response with citations
+- ✓ Framework filtering
+- ✓ Cross-framework comparison queries work
+- ✓ Sources show related framework tags for overlapping controls
 
-### 2. AI-Powered Chat Interface
+---
 
-**Priority:** P0 (MVP)
+### 2. Semantic Search — Live ✓
 
-Users can ask natural language questions about compliance requirements and receive AI-generated answers with source citations.
+**Implemented:**
+- Vector similarity search replacing keyword search
+- Framework filter
+- Results show document title, framework, snippet
 
-**User Stories:**
-- "What are the NIST CSF 5 core functions?"
-- "Explain FedRAMP AC-2 control requirements"
-- "How does ISO 27001 address access control?"
-- "Map NIST CSF ID.AM to ISO 27001 controls"
+**Backlog:**
+- Filter by document type, control family
+- Highlighted keyword matches in results
 
-**Acceptance Criteria:**
-- Response time < 5 seconds for initial response
-- Streaming responses for better UX
-- Citations link to original source documents
-- Framework filtering (query specific frameworks)
+---
 
-### 3. Document Search Interface
+### 3. Policy/Artifact Generator — Live (Expanding) ✓
 
-**Priority:** P0 (MVP)
+Multi-step wizard: Framework → Template → Scope → Generate → Export.
 
-Full-text and semantic search across all compliance documents with filtering by framework, document type, and date.
+**Current Templates:**
 
-**Acceptance Criteria:**
-- Hybrid search (keyword + semantic)
-- Filter by framework, document type, control family
-- Document preview with highlighted matches
-- Relevance scoring and sorting
+| Framework | Policy | Checklist | Procedure | SSP | POA&M | Gap Assessment |
+|---|---|---|---|---|---|---|
+| NIST CSF | ✓ | ✓ | — | — | — | — |
+| SP 800-53 | ✓ | ✓ | — | — | — | — |
+| FedRAMP | ✓ (SSP) | — | — | — | — | — |
+| CMMC | — | ✓ | — | — | — | — |
+| ISO 27001 | ✓ | ✓ | — | — | — | — |
+| NIST RMF | ✓ | — | — | — | — | — |
+| NIST AI RMF | ✓ | — | — | — | — | — |
+| ISO 42001 | ✓ | — | — | — | — | — |
+| SOX | ✓ | ✓ | — | — | — | — |
+| New AI frameworks | — | — | — | — | — | — |
 
-### 4. Policy/Checklist Generator
-
-**Priority:** P0 (MVP)
-
-Multi-step wizard for generating compliance documents:
-1. Select framework
-2. Select template type (policy, checklist, control mapping)
-3. Customize scope and select controls
-4. Generate document with AI
-5. Export in multiple formats
-
-**Template Types:**
-- Policies (CSF policy, ISO 27001 ISMS policy, FedRAMP SSP)
-- Checklists (control assessment checklists)
-- Control mappings (cross-reference frameworks)
-- Procedures (implementation procedures)
+**Template Backlog (Priority Order):**
+1. Policy templates for: CMMC, all new AI frameworks
+2. Checklist templates for: NIST RMF, NIST AI RMF, ISO 42001, all new AI frameworks
+3. Procedure templates for: NIST CSF, SP 800-53, CMMC
+4. Gap Assessment template (cross-framework, high value)
+5. POA&M template for: CMMC, FedRAMP, SP 800-53
+6. SSP template for: CMMC, SP 800-53
 
 **Export Formats:**
-- Markdown (default)
-- DOCX (Microsoft Word)
-- PDF (via HTML conversion)
+- ✓ Markdown
+- DOCX — implemented, untested
+- PDF — implemented, untested
 
-**Acceptance Criteria:**
-- Generated documents saved to database
-- Template sections populated from knowledge base
-- Export preserves formatting and structure
-- Section-by-section generation with preview
+---
 
-### 5. Automated Monthly Refresh
+### 4. Dashboard — Live ✓
 
-**Priority:** P1 (Post-MVP)
+**Implemented:**
+- Framework cards grouped by category (Cybersecurity / Financial Compliance / AI Governance)
+- Recent ingest activity table (filters out failed jobs)
+- Quick actions: Chat, Search, Generate
 
-Scheduled jobs that:
-- Check official sources for updated documents
-- Compare content hashes to detect changes
-- Ingest new/updated documents
-- Re-index affected content
-- Log all activity for audit trail
+---
 
-**Refresh Schedule:**
-- Monthly (first day of month at 02:00 UTC)
-- On-demand refresh via admin interface
+### 5. Cross-Framework Control Mapping — P1
 
-**Acceptance Criteria:**
-- Job status dashboard shows refresh history
-- Failed refreshes logged with error details
-- Source last-scraped timestamps updated
-- Next refresh dates calculated automatically
+Semantic clustering is live (shows "Also in: X, Y" tags). Explicit pre-computed mapping table is backlog.
 
-### 6. Cross-Framework Control Mapping
+**Backlog:**
+- Explicit control mapping table (CMMC ↔ NIST 800-171 ↔ SP 800-53)
+- Confidence scores per mapping
+- Mapping visible in search results and document generator
 
-**Priority:** P2 (Future)
+---
 
-Database of control mappings between frameworks:
-- NIST CSF ↔ ISO 27001
-- NIST SP 800-53 ↔ FedRAMP
-- CMMC ↔ NIST SP 800-171
+### 6. Framework Coverage Enhancement — In Progress
 
-**Acceptance Criteria:**
-- Confidence scores for mappings
-- Explanation of mapping rationale
-- Link to source control details
+Enhancing all frameworks to "Good" status (40+ docs, full control coverage). See priority order above in Frameworks table.
+
+---
+
+### 7. Automated Monthly Refresh — P2 (Not Started)
+
+- Scheduled ingest jobs checking official sources for changes
+- Content hash comparison to detect updates
+- Admin dashboard for refresh management
+
+---
+
+### 8. User Authentication & Workspaces — P3 (Not Started)
+
+- Supabase Auth for user accounts
+- Saved chat history
+- Saved generated documents per user
+- Team workspaces
+
+---
 
 ## Technical Architecture
 
 ### Frontend
-- **Framework:** Vite + React + TypeScript
-- **Styling:** Tailwind CSS
-- **Routing:** React Router
-- **State:** React hooks + Supabase client
+- Vite + React 18 + TypeScript + Tailwind CSS
+- React Router, React Hooks
+- react-markdown for rendering AI responses and generated documents
 
 ### Backend
-- **Platform:** Supabase (PostgreSQL + Edge Functions)
-- **Vector Search:** pgvector extension
-- **Edge Functions:** Deno runtime
-
-### Database Schema
-```
-compliance_frameworks  - Framework definitions
-sources                - Scraping configurations
-documents              - Ingested content
-document_chunks        - RAG embeddings (future)
-templates              - Document generation templates
-template_sections      - Template structure
-generated_documents    - User-created documents
-ingest_jobs            - Refresh tracking
-framework_mappings     - Cross-references
-```
+- Supabase: PostgreSQL + Edge Functions (Deno) + pgvector
+- OpenAI text-embedding-3-small for embeddings
+- Claude Haiku (claude-haiku-4-5) for chat generation
+- Claude Sonnet planned for complex generation tasks
 
 ### Edge Functions
-- `/chat` - RAG Q&A with streaming
-- `/search` - Document search
-- `/generate-document` - Policy wizard
-- `/export-document` - Format conversion
-- `/ingest-nist-csf` - NIST CSF scraper
+| Function | Purpose |
+|---|---|
+| `/chat` | RAG Q&A with SSE streaming |
+| `/search` | Vector similarity search |
+| `/generate-document` | Policy/artifact generator |
+| `/export-document` | MD/DOCX/PDF export |
+| `/ingest-*` | Per-framework data ingestion |
 
-## Release Phases
-
-### Phase 1 (MVP) - Complete
-- [x] Database schema and migrations
-- [x] Framework and source seeding
-- [x] Chat interface with citations
-- [x] Document search interface
-- [x] Policy generator wizard
-- [x] Export (MD, HTML, PDF)
-- [x] NIST CSF data ingestion
-- [x] FedRAMP baseline controls
-- [x] ISO 27001 controls
-
-### Phase 2 (Enhancement)
-- [ ] Vector embeddings for semantic search
-- [ ] Additional scrapers (NIST RMF, SP 800-53, CMMC)
-- [ ] Scheduled monthly refresh
-- [ ] Cross-framework mapping database
-
-### Phase 3 (Scale)
-- [ ] User authentication
-- [ ] Team workspaces
-- [ ] Document collaboration
-- [ ] API for external integrations
-
-## Data Sources
-
-| Framework | URL | Scraping Method |
-|-----------|-----|-----------------|
-| NIST CSF | nist.gov/cyberframework | Embedded data |
-| NIST RMF | csrc.nist.gov | JSON/API |
-| SP 800-53 | csrc.nist.gov | JSON download |
-| FedRAMP | fedramp.gov | Web scraping |
-| CMMC | dodcio.defense.gov | Web scraping |
-| ISO 27001 | iso.org | Manual/overview |
-| SOX | sec.gov | Web scraping |
-| AI RMF | nist.gov | Web scraping |
-
-## Success Metrics
-
-1. **Coverage:** 90% of core controls indexed per framework
-2. **Accuracy:** >80% user satisfaction with AI answers
-3. **Speed:** <5s response time for chat, <2s for search
-4. **Refresh:** 100% of sources refreshed monthly
-5. **Adoption:** 50+ generated documents per month
-
-## Open Questions
-
-1. User authentication - should auth be added in Phase 2 or later?
-2. Rate limiting - what limits for free vs. premium access?
-3. Offline mode - support for air-gapped environments?
-4. LLM provider - continue with Claude or add OpenAI option?
-
-## Dependencies
-
-### Required Environment Variables
-- `SUPABASE_URL` - Supabase project URL
-- `SUPABASE_ANON_KEY` - Anonymous key for client
-- `SUPABASE_SERVICE_ROLE_KEY` - Service key for edge functions
-- `OPENAI_API_KEY` - For embeddings (Phase 2)
-- `ANTHROPIC_API_KEY` - For advanced chat (Phase 2)
-
-### External Services
-- Supabase (database, edge functions, storage)
-- OpenAI API (embeddings - optional)
-- Anthropic API (LLM - optional)
+### Security
+- VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are client-safe (RLS enforced)
+- OPENAI_API_KEY and ANTHROPIC_API_KEY are Supabase Edge Function secrets only — never in client bundle
+- .env gitignored
 
 ---
 
-*Document maintained by CyberComplianceHub development team*
+## Success Metrics
+
+| Metric | Target | Current |
+|---|---|---|
+| Framework coverage | 90% of core controls per framework | Varies — see table above |
+| Response time (chat) | < 5s initial response | ✓ Streaming within ~1s |
+| Response time (search) | < 2s | ✓ |
+| Frameworks at "Good" | All | 5/13 live frameworks |
+| Template types | Policy + Checklist for all | ~60% coverage |
+
+---
+
+## Open Questions
+
+1. **Rate limiting** — Free vs. premium access tiers?
+2. **Offline/air-gapped** — Support for classified environments?
+3. **LLM model selection** — Auto-upgrade to Sonnet for complex queries?
+4. **International AI frameworks** — Add dedicated "International Regulations" group on dashboard?
+5. **CMMC 3.0** — Mandatory date TBD; revisit when announced
+
+---
+
+*Maintained by Carl Scott — CyberComplianceHub*
