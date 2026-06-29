@@ -16,6 +16,18 @@ const FAMILY_FIELD_MAP: Record<string, string> = {
 
 const FAMILY_SCOPED_TYPES = ['procedure', 'gap_assessment'];
 
+const categoryToGroup = (category: string): 'security' | 'ai' | 'financial' => {
+  if (category === 'ai-safety') return 'ai';
+  if (category === 'sox') return 'financial';
+  return 'security';
+};
+
+const FRAMEWORK_GROUPS: Record<string, { label: string }> = {
+  security:  { label: 'Cybersecurity' },
+  financial: { label: 'Financial Compliance' },
+  ai:        { label: 'AI Governance' },
+};
+
 export default function WizardPage() {
   const [step, setStep] = useState<Step>('framework');
   const [frameworks, setFrameworks] = useState<ComplianceFramework[]>([]);
@@ -245,32 +257,43 @@ export default function WizardPage() {
       {/* Step 1: Select Framework */}
       {step === 'framework' && (
         <div className="card">
-          <h3 className="text-lg font-semibold text-secondary-900 mb-4">
+          <h3 className="text-lg font-semibold text-secondary-900 mb-6">
             Select a Compliance Framework
           </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {frameworks.map((framework) => (
-              <button
-                key={framework.id}
-                onClick={() => {
-                  setSelectedFramework(framework.id);
-                  setStep('template');
-                }}
-                className={`p-4 rounded-lg border-2 text-left transition-all hover:border-primary-500 ${
-                  selectedFramework === framework.id
-                    ? 'border-primary-500 bg-primary-50'
-                    : 'border-secondary-200'
-                }`}
-              >
-                <h4 className="font-medium text-secondary-900">
-                  {framework.name}
+          {(['security', 'financial', 'ai'] as const).map((group) => {
+            const groupFrameworks = frameworks.filter(f => categoryToGroup(f.category) === group);
+            if (groupFrameworks.length === 0) return null;
+            return (
+              <div key={group} className="mb-6 last:mb-0">
+                <h4 className="text-xs font-semibold text-secondary-500 uppercase tracking-wider mb-3">
+                  {FRAMEWORK_GROUPS[group].label}
                 </h4>
-                <p className="text-sm text-secondary-600 mt-1">
-                  {framework.description || framework.abbreviation}
-                </p>
-              </button>
-            ))}
-          </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {groupFrameworks.map((framework) => (
+                    <button
+                      key={framework.id}
+                      onClick={() => {
+                        setSelectedFramework(framework.id);
+                        setStep('template');
+                      }}
+                      className={`p-4 rounded-lg border-2 text-left transition-all hover:border-primary-500 ${
+                        selectedFramework === framework.id
+                          ? 'border-primary-500 bg-primary-50'
+                          : 'border-secondary-200'
+                      }`}
+                    >
+                      <h4 className="font-medium text-secondary-900">
+                        {framework.name}
+                      </h4>
+                      <p className="text-sm text-secondary-600 mt-1">
+                        {framework.description || framework.abbreviation}
+                      </p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
 
