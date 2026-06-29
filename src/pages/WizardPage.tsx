@@ -281,7 +281,7 @@ export default function WizardPage() {
                     {FRAMEWORK_GROUPS[group].label}
                   </h4>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 items-stretch">
                   {groupFrameworks.map((framework) => (
                     <button
                       key={framework.id}
@@ -289,7 +289,7 @@ export default function WizardPage() {
                         setSelectedFramework(framework.id);
                         setStep('template');
                       }}
-                      className={`p-4 rounded-lg border-2 text-left transition-all hover:border-primary-500 ${
+                      className={`p-4 rounded-lg border-2 text-left transition-all hover:border-primary-500 h-full ${
                         selectedFramework === framework.id
                           ? 'border-primary-500 bg-primary-50'
                           : 'border-secondary-200'
