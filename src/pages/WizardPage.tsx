@@ -384,7 +384,7 @@ export default function WizardPage() {
             Customize Scope
           </h3>
           <div className="space-y-6">
-            {isFamilyScoped && (
+            {isFamilyScoped && familyField && (
               <div>
                 <label className="block text-sm font-medium text-secondary-700 mb-2">
                   Control Family {isFamilyRequired && <span className="text-red-500">*</span>}
