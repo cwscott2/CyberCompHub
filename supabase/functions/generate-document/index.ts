@@ -21,6 +21,15 @@ interface GenerateRequest {
   family_metadata_field?: string;
 }
 
+const ALLOWED_FAMILY_FIELDS = new Set([
+  'family_name',
+  'control_family',
+  'domain_name',
+  'function_name',
+  'annex_name',
+  'category',
+]);
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { status: 200, headers: corsHeaders });
@@ -67,6 +76,12 @@ Deno.serve(async (req: Request) => {
       .eq('framework_id', framework_id);
 
     if (selected_family && family_metadata_field) {
+      if (!ALLOWED_FAMILY_FIELDS.has(family_metadata_field)) {
+        return new Response(
+          JSON.stringify({ error: 'Invalid family_metadata_field' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
       docQuery = docQuery.eq(`metadata->>${family_metadata_field}`, selected_family);
     } else if (selected_controls && selected_controls.length > 0) {
       docQuery = docQuery.in('metadata->>practice_id', selected_controls);
@@ -104,7 +119,7 @@ Deno.serve(async (req: Request) => {
         const isProcedure = template.template_type === 'procedure';
         sectionContent = isProcedure ? `## Procedures\n\n` : `## Controls and Requirements\n\n`;
         for (const doc of documents) {
-          if (doc.document_type === 'control' || doc.document_type === 'requirement') {
+          if (doc.document_type === 'control') {
             if (isProcedure) {
               const controlId = doc.metadata?.control_id || doc.metadata?.practice_id || '';
               sectionContent += `### ${controlId}${controlId ? ' — ' : ''}${doc.title}\n\n`;
@@ -134,7 +149,7 @@ Deno.serve(async (req: Request) => {
       } else if (section.section_key === 'checklist' && documents) {
         sectionContent = `## Compliance Checklist\n\n`;
         for (const doc of documents) {
-          if (doc.document_type === 'control' || doc.document_type === 'requirement') {
+          if (doc.document_type === 'control') {
             const practiceId = doc.metadata?.practice_id || doc.metadata?.control_id || '';
             const description = doc.metadata?.description ||
               doc.raw_content?.match(/## Requirement\n(.*)/)?.[1] ||
@@ -171,6 +186,8 @@ Deno.serve(async (req: Request) => {
         metadata: {
           custom_scope,
           selected_controls,
+          selected_family: selected_family || null,
+          family_metadata_field: family_metadata_field || null,
           generated_at: new Date().toISOString(),
         },
         export_formats: ['markdown'],
