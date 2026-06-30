@@ -112,11 +112,13 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const { data: source, error: srcError } = await supabase
+    const { data: sources, error: srcError } = await supabase
       .from('sources')
       .select('id')
       .eq('framework_id', framework.id)
-      .single();
+      .limit(1);
+
+    const source = sources?.[0] ?? null;
 
     if (srcError || !source) {
       return new Response(
