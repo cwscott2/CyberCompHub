@@ -6,6 +6,7 @@ import {
   AlignmentType, Packer, BorderStyle,
   UnderlineType,
 } from 'https://esm.sh/docx@8.5.0';
+import * as XLSX from 'https://esm.sh/xlsx@0.18.5';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -19,7 +20,68 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 interface ExportRequest {
   document_id: string;
-  format: 'markdown' | 'docx' | 'pdf';
+  format: 'markdown' | 'docx' | 'pdf' | 'xlsx';
+}
+
+// Convert markdown to Excel workbook with multiple sheets
+function markdownToExcel(markdown: string, title: string): Uint8Array {
+  const wb = XLSX.utils.book_new();
+  const lines = markdown.split('\n');
+
+  // Sheet 1: Checklist items (- [ ] lines)
+  const checklistRows: string[][] = [['Status', 'Item', 'Evidence / Notes', 'Control ID']];
+  const checklistPattern = /^- \[[ x]\] \*\*(.+?)\*\*(?:\s*\|\s*Evidence:\s*(.+?))?(?:\s*`(\[.+?\])`)?$/;
+
+  for (const line of lines) {
+    const m = line.match(checklistPattern);
+    if (m) {
+      const checked = line.startsWith('- [x]') ? 'Complete' : 'Incomplete';
+      checklistRows.push([checked, m[1] || '', m[2] || '', m[3] || '']);
+    }
+  }
+  if (checklistRows.length > 1) {
+    const ws = XLSX.utils.aoa_to_sheet(checklistRows);
+    ws['!cols'] = [{ wch: 12 }, { wch: 60 }, { wch: 40 }, { wch: 14 }];
+    XLSX.utils.book_append_sheet(wb, ws, 'Checklist');
+  }
+
+  // Sheet 2: All markdown tables extracted as separate sheets
+  let tableIndex = 0;
+  let i = 0;
+  while (i < lines.length) {
+    // Detect table start: line with | chars
+    if (lines[i].includes('|') && lines[i + 1]?.match(/^[\s|:-]+$/)) {
+      const tableRows: string[][] = [];
+      while (i < lines.length && lines[i].includes('|')) {
+        if (!lines[i].match(/^[\s|:-]+$/)) {
+          const cells = lines[i].split('|').map(c => c.trim()).filter((_, idx, arr) => idx > 0 && idx < arr.length - 1);
+          tableRows.push(cells);
+        }
+        i++;
+      }
+      if (tableRows.length > 1) {
+        tableIndex++;
+        const ws = XLSX.utils.aoa_to_sheet(tableRows);
+        const maxWidths = tableRows[0].map((_, col) =>
+          Math.min(50, Math.max(10, ...tableRows.map(r => (r[col] || '').length)))
+        );
+        ws['!cols'] = maxWidths.map(wch => ({ wch }));
+        XLSX.utils.book_append_sheet(wb, ws, `Table ${tableIndex}`);
+      }
+      continue;
+    }
+    i++;
+  }
+
+  // Sheet 3: Full content as plain text (always included as fallback)
+  const textRows = lines
+    .filter(l => l.trim() && !l.match(/^[\s|:-]+$/) && !l.startsWith('---'))
+    .map(l => [l.replace(/^#+\s*/, '').replace(/\*\*/g, '').replace(/`/g, '')]);
+  const textWs = XLSX.utils.aoa_to_sheet([['Content'], ...textRows]);
+  textWs['!cols'] = [{ wch: 120 }];
+  XLSX.utils.book_append_sheet(wb, textWs, 'Full Text');
+
+  return XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
 }
 
 // Parse inline markdown: **bold**, *italic*, `code`, plain text
@@ -272,6 +334,19 @@ Deno.serve(async (req: Request) => {
           ...corsHeaders,
           'Content-Type': 'text/html',
           'Content-Disposition': `attachment; filename="${safeFilename}.html"`,
+        },
+      });
+    }
+
+    if (format === 'xlsx') {
+      const xlsxBuffer = markdownToExcel(content, title);
+
+      return new Response(xlsxBuffer, {
+        status: 200,
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          'Content-Disposition': `attachment; filename="${safeFilename}.xlsx"`,
         },
       });
     }

@@ -176,7 +176,7 @@ export default function WizardPage() {
     }
   };
 
-  const handleExport = async (format: 'markdown' | 'docx') => {
+  const handleExport = async (format: 'markdown' | 'docx' | 'xlsx') => {
     if (!generatedDocId) return;
 
     setExporting(true);
@@ -199,7 +199,8 @@ export default function WizardPage() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `compliance-document-${Date.now()}.${format}`;
+      const ext = format === 'xlsx' ? 'xlsx' : format === 'docx' ? 'docx' : 'md';
+      a.download = `compliance-document-${Date.now()}.${ext}`;
       a.click();
       URL.revokeObjectURL(url);
     } catch (error) {
@@ -585,6 +586,13 @@ export default function WizardPage() {
                 className="btn-secondary"
               >
                 Export DOCX
+              </button>
+              <button
+                onClick={() => handleExport('xlsx')}
+                disabled={exporting}
+                className="btn-secondary"
+              >
+                Export XLSX
               </button>
             </div>
           </div>
