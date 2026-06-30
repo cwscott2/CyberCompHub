@@ -114,21 +114,14 @@ Deno.serve(async (req: Request) => {
 
     const { data: source, error: srcError } = await supabase
       .from('sources')
-      .insert({
-        framework_id: framework.id,
-        name: 'NIST SP 800-53 Rev 5 — Security and Privacy Controls for Information Systems and Organizations (OSCAL)',
-        url: OSCAL_URL,
-        source_type: 'webpage',
-        scraper_type: 'generic-webpage',
-        is_active: true,
-      })
       .select('id')
+      .eq('framework_id', framework.id)
       .single();
 
     if (srcError || !source) {
       return new Response(
-        JSON.stringify({ error: 'Failed to create source', details: srcError?.message }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: 'SP 800-53 source not found — seed it via SQL first', details: srcError?.message }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
