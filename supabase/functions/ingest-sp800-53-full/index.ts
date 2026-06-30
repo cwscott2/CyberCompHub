@@ -133,13 +133,21 @@ Deno.serve(async (req: Request) => {
       .select('id')
       .single();
 
+    // Optional: process a single family per invocation to avoid timeout
+    const body = req.method === 'POST' ? await req.json().catch(() => ({})) : {};
+    const familyFilter: string | null = body.family ?? null; // e.g. "AC", "AT", "AU"
+
     const oscalRes = await fetch(OSCAL_URL);
     if (!oscalRes.ok) throw new Error(`Failed to fetch OSCAL JSON: ${oscalRes.statusText}`);
     const oscal: OscalCatalog = await oscalRes.json();
 
     let documentsIngested = 0;
 
-    for (const group of oscal.catalog.groups) {
+    const groups = familyFilter
+      ? oscal.catalog.groups.filter(g => g.id.toUpperCase() === familyFilter.toUpperCase())
+      : oscal.catalog.groups;
+
+    for (const group of groups) {
       const familyAbbr = group.id.toUpperCase();
       const familyName = group.title;
 
@@ -261,7 +269,7 @@ Deno.serve(async (req: Request) => {
     }
 
     return new Response(
-      JSON.stringify({ success: true, documents_ingested: documentsIngested }),
+      JSON.stringify({ success: true, documents_ingested: documentsIngested, family: familyFilter ?? 'ALL' }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
