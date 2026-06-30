@@ -30,6 +30,7 @@ const ALLOWED_FAMILY_FIELDS = new Set([
   'annex_name',
   'category',
   'step_name',
+  'trust_service_category',
 ]);
 
 async function callClaude(prompt: string, maxTokens = 4096): Promise<string> {
@@ -158,6 +159,107 @@ Use [Organization Name] wherever the organization name appears. After each Step 
   return callClaude(prompt, 6000);
 }
 
+async function generateGapAssessmentWithClaude(
+  frameworkName: string,
+  familyName: string,
+  controls: Array<{ title: string; raw_content: string; metadata: Record<string, unknown> }>,
+  customScope?: string,
+): Promise<string> {
+  const controlContext = controls
+    .filter(d => !d.metadata?.is_enhancement)
+    .slice(0, 40)
+    .map(d => {
+      const id = d.metadata?.control_id || '';
+      const content = d.raw_content?.slice(0, 500) || d.title;
+      return `**${id} — ${d.title}**\n${content}`;
+    })
+    .join('\n\n---\n\n');
+
+  const scopeInstruction = customScope
+    ? `\nAdditional scope context provided by the requestor: "${customScope}"\n`
+    : '';
+
+  const prompt = `You are an expert information security assessor conducting a compliance gap assessment. Write a formal gap assessment document based on NIST SP 800-53 Rev 5 control requirements.
+
+Framework: ${frameworkName}
+Control Family: ${familyName}
+${scopeInstruction}
+Control Requirements for this family:
+
+${controlContext}
+
+Write a complete, production-ready gap assessment document in Markdown. The document must:
+- Be structured for a compliance officer or auditor to use as a working assessment tool
+- For each control, describe what is required, what typical gaps look like, what evidence to collect, and what risk is introduced if the gap exists
+- Include these sections in order:
+  1. Title (e.g., "${familyName} Compliance Gap Assessment")
+  2. Document Control table: Organization, Assessor, Assessment Date, Framework Version, Review Cycle — use [Organization Name], [Assessor Name], and [Assessment Date] placeholders
+  3. Executive Summary (2-3 sentences on purpose and scope of this assessment)
+  4. Assessment Methodology (how to use this document, rating scale: Compliant / Partially Compliant / Non-Compliant / Not Applicable)
+  5. Gap Analysis (the main body — one subsection per control or logical grouping):
+     For each control write:
+     - **Requirement**: What the control mandates (plain language)
+     - **Current State**: [ ] Compliant  [ ] Partially Compliant  [ ] Non-Compliant  [ ] N/A  *(assessor fills in)*
+     - **Gap Description**: Common gaps organizations face for this control; leave a blank line for assessor notes
+     - **Required Evidence**: Bulleted list of specific artifacts/evidence an assessor would request
+     - **Risk if Non-Compliant**: Risk level (High/Medium/Low) and brief impact statement
+  6. Summary Findings Table (Control ID | Requirement Summary | Status | Risk Level | Notes)
+  7. Recommended Remediation Roadmap (prioritized by risk — High gaps first, with suggested remediation actions)
+  8. Next Steps and Review Schedule
+
+Use [Organization Name] wherever the organization name appears. After each control's Required Evidence section, append the applicable control ID(s) at sub-component granularity (e.g., \`[AC-2a]\`, \`[AC-3b]\`). Output only the Markdown document, no preamble.`;
+
+  return callClaude(prompt, 6000);
+}
+
+async function generateChecklistWithClaude(
+  frameworkName: string,
+  familyName: string,
+  controls: Array<{ title: string; raw_content: string; metadata: Record<string, unknown> }>,
+  customScope?: string,
+): Promise<string> {
+  const controlContext = controls
+    .slice(0, 60)
+    .map(d => {
+      const id = d.metadata?.control_id || '';
+      const isEnhancement = d.metadata?.is_enhancement;
+      const content = d.raw_content?.slice(0, 400) || d.title;
+      return `**${id} — ${d.title}**${isEnhancement ? ' *(Enhancement)*' : ''}\n${content}`;
+    })
+    .join('\n\n---\n\n');
+
+  const scopeInstruction = customScope
+    ? `\nAdditional scope context provided by the requestor: "${customScope}"\n`
+    : '';
+
+  const prompt = `You are an expert information security compliance engineer writing a compliance verification checklist. Write a concise, actionable checklist based on NIST SP 800-53 Rev 5 control requirements.
+
+Framework: ${frameworkName}
+Control Family: ${familyName}
+${scopeInstruction}
+Control Requirements for this family (including enhancements):
+
+${controlContext}
+
+Write a complete, production-ready compliance checklist in Markdown. The document must:
+- Be structured for an auditor or compliance engineer to verify implementation
+- Each checklist item must be specific enough to answer with Yes/No/Partial/N/A
+- Include these sections in order:
+  1. Title (e.g., "${familyName} Compliance Checklist")
+  2. Document Control table: Organization, Version (1.0), Date, Completed By — use [Organization Name], [Date], [Reviewer Name] placeholders
+  3. Instructions (one short paragraph: how to use the checklist, status codes, what to do with findings)
+  4. Checklist Items — organized into logical groupings (not one item per control ID):
+     For each item use this format:
+     \`- [ ] **[Item description as a verifiable statement]** | Evidence: [specific artifact] \`[Control ID(s)]\`\`
+     Example: \`- [ ] **User access requests are documented and approved prior to provisioning.** | Evidence: Access request tickets, approval records \`[AC-2a]\`\`
+  5. Summary Table (Control ID | Checklist Items Count | Status | Notes) — leave Status and Notes blank for the reviewer to fill in
+  6. Sign-off block: Reviewer, Role, Date, Signature — with placeholders
+
+Use [Organization Name] wherever the organization name appears. Include the applicable control ID at sub-component granularity on every checklist item. Output only the Markdown document, no preamble.`;
+
+  return callClaude(prompt, 5000);
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { status: 200, headers: corsHeaders });
@@ -232,6 +334,20 @@ Deno.serve(async (req: Request) => {
       );
     } else if (template.template_type === 'procedure') {
       content_markdown = await generateProcedureWithClaude(
+        framework?.name || 'Compliance Framework',
+        selected_family || framework?.name || 'Security',
+        documents,
+        custom_scope,
+      );
+    } else if (template.template_type === 'gap_assessment') {
+      content_markdown = await generateGapAssessmentWithClaude(
+        framework?.name || 'Compliance Framework',
+        selected_family || framework?.name || 'Security',
+        documents,
+        custom_scope,
+      );
+    } else if (template.template_type === 'checklist') {
+      content_markdown = await generateChecklistWithClaude(
         framework?.name || 'Compliance Framework',
         selected_family || framework?.name || 'Security',
         documents,

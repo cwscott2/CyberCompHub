@@ -12,6 +12,7 @@ const FAMILY_FIELD_MAP: Record<string, string> = {
   'FedRAMP': 'family_name',
   'NIST CSF': 'function_name',
   'ISO 27001': 'annex_name',
+  'SOC 2': 'trust_service_category',
 };
 
 const FAMILY_SCOPED_TYPES = ['procedure', 'gap_assessment', 'policy', 'checklist', 'poam'];
