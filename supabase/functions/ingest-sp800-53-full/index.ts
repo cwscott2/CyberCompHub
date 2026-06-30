@@ -118,8 +118,8 @@ Deno.serve(async (req: Request) => {
         framework_id: framework.id,
         name: 'NIST SP 800-53 Rev 5 — Security and Privacy Controls for Information Systems and Organizations (OSCAL)',
         url: OSCAL_URL,
-        source_type: 'json',
-        scraper_type: 'nist-json',
+        source_type: 'webpage',
+        scraper_type: 'generic-webpage',
         is_active: true,
       })
       .select('id')
