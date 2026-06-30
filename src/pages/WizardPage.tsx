@@ -12,9 +12,21 @@ const FAMILY_FIELD_MAP: Record<string, string> = {
   'FedRAMP': 'family_name',
   'FedRAMP High': 'family_name',
   'FedRAMP Low': 'family_name',
+  'FedRAMP Moderate': 'family_name',
   'NIST CSF': 'function_name',
   'ISO 27001': 'annex_name',
   'SOC 2': 'trust_service_category',
+  // International AI frameworks — group by category field
+  'Singapore MAIGF': 'category',
+  'UNESCO AI Ethics': 'category',
+  'UK AISI': 'category',
+  'G7 Hiroshima AI': 'category',
+  'Canada AIDA': 'category',
+  'China GenAI Reg': 'category',
+  'Japan METI AI': 'category',
+  'DoD AI Ethics': 'category',
+  'MITRE ATLAS': 'tactic',
+  'NIST AI 100-1': 'category',
 };
 
 const FAMILY_SCOPED_TYPES = ['procedure', 'gap_assessment', 'policy', 'checklist', 'poam'];

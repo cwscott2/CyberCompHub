@@ -31,6 +31,7 @@ const ALLOWED_FAMILY_FIELDS = new Set([
   'category',
   'step_name',
   'trust_service_category',
+  'tactic',
 ]);
 
 async function callClaude(prompt: string, maxTokens = 4096): Promise<string> {
