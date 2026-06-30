@@ -222,12 +222,13 @@ export default function WizardPage() {
         </p>
       </div>
 
-      {/* Progress indicator */}
-      <div className="mb-8">
-        <div className="flex items-center justify-between">
-          {steps.slice(0, 4).map((s, i) => (
-            <div key={s} className="flex items-center">
+      {/* C2: Progress indicator — nav landmark with step context for screen readers */}
+      <nav aria-label="Document generation progress" className="mb-8">
+        <ol className="flex items-center justify-between list-none p-0 m-0" role="list">
+          {(['Framework', 'Template', 'Scope', 'Generate'] as const).map((label, i) => (
+            <li key={label} className="flex items-center">
               <div
+                aria-current={i === currentStepIndex ? 'step' : undefined}
                 className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
                   i < currentStepIndex
                     ? 'bg-accent-600 text-white'
@@ -236,32 +237,36 @@ export default function WizardPage() {
                     : 'bg-secondary-200 text-secondary-600'
                 }`}
               >
-                {i + 1}
+                <span aria-hidden="true">{i + 1}</span>
+                <span className="sr-only">
+                  {label}{i < currentStepIndex ? ' (completed)' : i === currentStepIndex ? ' (current)' : ''}
+                </span>
               </div>
               {i < 3 && (
                 <div
+                  aria-hidden="true"
                   className={`w-24 h-1 mx-2 ${
                     i < currentStepIndex ? 'bg-accent-600' : 'bg-secondary-200'
                   }`}
                 />
               )}
-            </div>
+            </li>
           ))}
-        </div>
-        <div className="flex justify-between mt-2 px-1 text-xs text-secondary-600">
+        </ol>
+        <div className="flex justify-between mt-2 px-1 text-xs text-secondary-600" aria-hidden="true">
           <span>Framework</span>
           <span>Template</span>
           <span>Scope</span>
           <span>Generate</span>
         </div>
-      </div>
+      </nav>
 
       {/* Inline error banner */}
       {error && (
         <div className="mb-6 p-4 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm flex items-start gap-2">
           <span className="font-medium">Error:</span>
           <span>{error}</span>
-          <button onClick={() => setError(null)} className="ml-auto text-red-400 hover:text-red-600">✕</button>
+          <button onClick={() => setError(null)} aria-label="Dismiss error" className="ml-auto text-red-400 hover:text-red-600" aria-live="assertive"><span aria-hidden="true">✕</span></button>
         </div>
       )}
 
@@ -277,7 +282,8 @@ export default function WizardPage() {
             return (
               <div key={group} className="mb-6 last:mb-0">
                 <div className={`flex items-center gap-2 mb-3 px-3 py-2 rounded-lg border ${FRAMEWORK_GROUPS[group].accent} w-fit`}>
-                  <span className="text-base">{FRAMEWORK_GROUPS[group].icon}</span>
+                  {/* H8: decorative emoji */}
+                  <span className="text-base" aria-hidden="true">{FRAMEWORK_GROUPS[group].icon}</span>
                   <h4 className="text-xs font-semibold text-secondary-700 uppercase tracking-wide">
                     {FRAMEWORK_GROUPS[group].label}
                   </h4>
@@ -408,8 +414,10 @@ export default function WizardPage() {
           <div className="space-y-6">
             {isFamilyScoped && familyField && (
               <div>
-                <label className="block text-sm font-medium text-secondary-700 mb-2">
-                  Control Family {isFamilyRequired && <span className="text-red-500">*</span>}
+                {/* L1: label linked to select via htmlFor/id */}
+                <label htmlFor="family-select" className="block text-sm font-medium text-secondary-700 mb-2">
+                  Control Family {isFamilyRequired && <span className="text-red-500" aria-hidden="true">*</span>}
+                  {isFamilyRequired && <span className="sr-only">(required)</span>}
                   {!isFamilyRequired && <span className="text-secondary-400 font-normal"> (optional)</span>}
                 </label>
                 {availableFamilies.length > 0 ? (
@@ -420,6 +428,7 @@ export default function WizardPage() {
                         : 'Optionally scope this document to a single control family, or leave blank for a full-framework policy.'}
                     </p>
                     <select
+                      id="family-select"
                       value={selectedFamily}
                       onChange={(e) => setSelectedFamily(e.target.value)}
                       className="input"
@@ -438,10 +447,12 @@ export default function WizardPage() {
               </div>
             )}
             <div>
-              <label className="block text-sm font-medium text-secondary-700 mb-2">
+              {/* M6: label linked to textarea */}
+              <label htmlFor="custom-scope" className="block text-sm font-medium text-secondary-700 mb-2">
                 Custom Scope (Optional)
               </label>
               <textarea
+                id="custom-scope"
                 value={customScope}
                 onChange={(e) => setCustomScope(e.target.value)}
                 placeholder={
@@ -502,11 +513,11 @@ export default function WizardPage() {
         </div>
       )}
 
-      {/* Step 4: Generating */}
+      {/* Step 4: Generating — H10: role=status + aria-live so screen readers announce the loading state */}
       {step === 'generate' && generating && (
-        <div className="card text-center py-12">
+        <div className="card text-center py-12" role="status" aria-live="polite" aria-label="Generating document, please wait">
           <div className="w-16 h-16 bg-primary-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg className="animate-spin h-8 w-8 text-primary-600" viewBox="0 0 24 24">
+            <svg className="animate-spin h-8 w-8 text-primary-600" aria-hidden="true" viewBox="0 0 24 24">
               <circle
                 className="opacity-25"
                 cx="12"

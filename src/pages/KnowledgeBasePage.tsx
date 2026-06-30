@@ -126,9 +126,11 @@ export default function KnowledgeBasePage() {
         </p>
       </div>
 
-      {/* Search */}
+      {/* Search — H12: explicit label */}
       <div className="mb-6">
+        <label htmlFor="kb-search" className="sr-only">Filter frameworks</label>
         <input
+          id="kb-search"
           type="text"
           placeholder="Filter frameworks…"
           value={search}
@@ -141,7 +143,8 @@ export default function KnowledgeBasePage() {
       {grouped.map(({ group, config, items }) => (
         <div key={group} className="mb-10">
           <div className="flex items-center gap-2 mb-4">
-            <span className="text-lg">{config.icon}</span>
+            {/* H4: decorative emoji hidden from screen readers */}
+            <span className="text-lg" aria-hidden="true">{config.icon}</span>
             <h3 className="text-base font-semibold text-secondary-700 uppercase tracking-wide">
               {config.label}
             </h3>
@@ -154,8 +157,11 @@ export default function KnowledgeBasePage() {
             {items.map(fw => (
               <div key={fw.id} className={`rounded-xl border ${config.accent} overflow-hidden`}>
                 {/* Row */}
+                {/* M3: aria-expanded so screen readers know collapsed/expanded state */}
                 <button
                   onClick={() => loadDocTitles(fw.id)}
+                  aria-expanded={expandedId === fw.id}
+                  aria-label={`${fw.name} — ${expandedId === fw.id ? 'collapse' : 'expand'} document list`}
                   className="w-full text-left px-5 py-4 flex items-center gap-4 hover:bg-black/[0.02] transition-colors"
                 >
                   {/* Framework name */}
@@ -199,7 +205,7 @@ export default function KnowledgeBasePage() {
                         </div>
                       </div>
                     )}
-                    {/* Quality badge */}
+                    {/* M2: quality badge — symbol aria-hidden, text visually present */}
                     <div className={`hidden sm:flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full ${
                       fw.doc_count >= 40
                         ? 'bg-green-100 text-green-700'
@@ -207,7 +213,8 @@ export default function KnowledgeBasePage() {
                         ? 'bg-yellow-100 text-yellow-700'
                         : 'bg-red-100 text-red-700'
                     }`}>
-                      {fw.doc_count >= 40 ? '✓ Good' : fw.doc_count >= 15 ? '△ Partial' : '✗ Thin'}
+                      <span aria-hidden="true">{fw.doc_count >= 40 ? '✓' : fw.doc_count >= 15 ? '△' : '✗'}</span>
+                      {fw.doc_count >= 40 ? 'Good' : fw.doc_count >= 15 ? 'Partial' : 'Thin'}
                     </div>
                     {/* Expand chevron */}
                     <span className="text-secondary-400 text-sm">

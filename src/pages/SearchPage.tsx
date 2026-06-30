@@ -76,7 +76,10 @@ export default function SearchPage() {
       <form onSubmit={handleSearch} className="mb-8">
         <div className="flex flex-col sm:flex-row gap-4">
           <div className="flex-1">
+            {/* C4: explicit label for search input */}
+            <label htmlFor="search-query" className="sr-only">Search query</label>
             <input
+              id="search-query"
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
@@ -84,7 +87,10 @@ export default function SearchPage() {
               className="input w-full"
             />
           </div>
+          {/* H3: explicit label for framework filter */}
+          <label htmlFor="search-framework" className="sr-only">Filter by framework</label>
           <select
+            id="search-framework"
             value={selectedFramework}
             onChange={(e) => setSelectedFramework(e.target.value)}
             className="input sm:w-48"
@@ -110,8 +116,11 @@ export default function SearchPage() {
         <div className="lg:col-span-2">
           {results.length === 0 ? (
             <div className="text-center py-12 bg-white rounded-xl border border-secondary-200">
+              {/* H1: decorative empty-state SVG */}
               <svg
                 className="w-12 h-12 text-secondary-300 mx-auto mb-4"
+                aria-hidden="true"
+                focusable="false"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -177,11 +186,13 @@ export default function SearchPage() {
                 <h3 className="font-semibold text-secondary-900">
                   Document Details
                 </h3>
+                {/* H11: close button needs accessible label */}
                 <button
                   onClick={() => setSelectedDocument(null)}
+                  aria-label="Close document details"
                   className="text-secondary-400 hover:text-secondary-600"
                 >
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg className="w-5 h-5" aria-hidden="true" focusable="false" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
