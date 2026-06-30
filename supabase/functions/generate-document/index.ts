@@ -57,18 +57,21 @@ async function callClaude(prompt: string, maxTokens = 4096): Promise<string> {
   return data.content?.[0]?.text || '';
 }
 
+function resolveControlId(metadata: Record<string, unknown>): string {
+  return (metadata?.control_id || metadata?.practice_id || metadata?.criterion_id || '') as string;
+}
+
 async function generatePolicyWithClaude(
   frameworkName: string,
   familyName: string,
   controls: Array<{ title: string; raw_content: string; metadata: Record<string, unknown> }>,
   customScope?: string,
 ): Promise<string> {
-  // Build compact control context — title + first 400 chars of requirement
   const controlContext = controls
-    .filter(d => !d.metadata?.is_enhancement) // base controls only for policy structure
-    .slice(0, 40) // cap at 40 base controls
+    .filter(d => !d.metadata?.is_enhancement)
+    .slice(0, 40)
     .map(d => {
-      const id = d.metadata?.control_id || '';
+      const id = resolveControlId(d.metadata);
       const content = d.raw_content?.slice(0, 400) || d.title;
       return `**${id} — ${d.title}**\n${content}`;
     })
@@ -78,17 +81,17 @@ async function generatePolicyWithClaude(
     ? `\nAdditional scope context provided by the requestor: "${customScope}"\n`
     : '';
 
-  const prompt = `You are an expert information security policy writer. Write a formal, professional security policy based on NIST SP 800-53 Rev 5 control requirements.
+  const prompt = `You are an expert information security policy writer. Write a formal, professional security policy based on ${frameworkName} control requirements.
 
 Framework: ${frameworkName}
-Control Family: ${familyName}
+Control Family / Domain: ${familyName}
 ${scopeInstruction}
 Control Requirements for this family:
 
 ${controlContext}
 
 Write a complete, production-ready security policy document in Markdown. The policy must:
-- Be written in clear organizational policy language (not NIST control citation language)
+- Be written in clear organizational policy language (not framework citation language)
 - Translate control requirements into actionable organizational commitments
 - Include these sections in order:
   1. Title (e.g., "${familyName} Security Policy")
@@ -96,13 +99,13 @@ Write a complete, production-ready security policy document in Markdown. The pol
   3. Purpose (2-3 sentences)
   4. Scope (who and what this policy covers)
   5. Policy Statement (the organization's core commitment)
-  6. Policy Requirements (the main body — write one subsection per logical grouping of controls, using plain language requirements an employee can follow, not NIST citations)
+  6. Policy Requirements (the main body — write one subsection per logical grouping of controls, using plain language requirements an employee can follow)
   7. Roles and Responsibilities (table: Role | Responsibilities)
   8. Compliance and Enforcement
   9. Review and Update (annual review cycle)
   10. Related Documents (placeholder list)
 
-Use [Organization Name] wherever the organization name appears. Do not reference NIST control IDs in prose sentences — translate them into plain requirements. After each paragraph or bulleted requirement in the Policy Requirements section, append the applicable control ID(s) in brackets at the end of the line. Use the most specific reference available — include the sub-component letter when the requirement maps to a specific part, e.g. \`[AC-1a]\`, \`[AC-1c]\`, or \`[AC-2, AC-3b]\`. Output only the Markdown document, no preamble.`;
+Use [Organization Name] wherever the organization name appears. Do not reference control IDs in prose sentences — translate them into plain requirements. After each paragraph or bulleted requirement in the Policy Requirements section, append the applicable control ID(s) in brackets at the end of the line (e.g., \`[AC-1a]\`, \`[AC.L2-3.1.1]\`, \`[CC6.1]\`). Output only the Markdown document, no preamble.`;
 
   return callClaude(prompt);
 }
@@ -113,11 +116,10 @@ async function generateProcedureWithClaude(
   controls: Array<{ title: string; raw_content: string; metadata: Record<string, unknown> }>,
   customScope?: string,
 ): Promise<string> {
-  // Procedures use all controls including enhancements for full implementation detail
   const controlContext = controls
     .slice(0, 60)
     .map(d => {
-      const id = d.metadata?.control_id || '';
+      const id = resolveControlId(d.metadata);
       const isEnhancement = d.metadata?.is_enhancement;
       const content = d.raw_content?.slice(0, 500) || d.title;
       return `**${id} — ${d.title}**${isEnhancement ? ' *(Enhancement)*' : ''}\n${content}`;
@@ -128,10 +130,10 @@ async function generateProcedureWithClaude(
     ? `\nAdditional scope context provided by the requestor: "${customScope}"\n`
     : '';
 
-  const prompt = `You are an expert information security engineer writing implementation procedures for a compliance program. Write formal, actionable procedures based on NIST SP 800-53 Rev 5 control requirements.
+  const prompt = `You are an expert information security engineer writing implementation procedures for a compliance program. Write formal, actionable procedures based on ${frameworkName} control requirements.
 
 Framework: ${frameworkName}
-Control Family: ${familyName}
+Control Family / Domain: ${familyName}
 ${scopeInstruction}
 Control Requirements for this family (including enhancements):
 
@@ -149,12 +151,12 @@ Write a complete, production-ready procedure document in Markdown. The document 
      For each logical grouping write:
      - **Step 1 — Understand the Requirement**: What the control mandates in plain language
      - **Step 2 — Assign Responsibility**: Role accountable for this procedure
-     - **Step 3 — Implement**: Specific, numbered implementation actions (e.g., "Configure Active Directory group policy to..."). Include tool references where applicable ([System/Tool Name] placeholder).
-     - **Step 4 — Verify & Document**: What evidence to collect, how to test, what to record. Include example artifact names (e.g., "Access Control Review Log").
-  6. Testing and Verification Summary (table: Control | Test Method | Evidence Artifact | Frequency)
+     - **Step 3 — Implement**: Specific, numbered implementation actions. Include tool references where applicable ([System/Tool Name] placeholder).
+     - **Step 4 — Verify & Document**: What evidence to collect, how to test, what to record. Include example artifact names.
+  6. Testing and Verification Summary (table: Control ID | Test Method | Evidence Artifact | Frequency)
   7. Related Policies and References
 
-Use [Organization Name] wherever the organization name appears. After each Step 4 block, append the applicable control ID(s) at sub-component granularity (e.g., \`[AC-2b]\`, \`[AC-3, AC-6a]\`). Output only the Markdown document, no preamble.`;
+Use [Organization Name] wherever the organization name appears. After each Step 4 block, append the applicable control ID(s) at sub-component granularity (e.g., \`[AC-2b]\`, \`[AC.L2-3.1.1]\`, \`[CC6.1]\`). Output only the Markdown document, no preamble.`;
 
   return callClaude(prompt, 6000);
 }
@@ -169,7 +171,7 @@ async function generateGapAssessmentWithClaude(
     .filter(d => !d.metadata?.is_enhancement)
     .slice(0, 40)
     .map(d => {
-      const id = d.metadata?.control_id || '';
+      const id = resolveControlId(d.metadata);
       const content = d.raw_content?.slice(0, 500) || d.title;
       return `**${id} — ${d.title}**\n${content}`;
     })
@@ -179,10 +181,10 @@ async function generateGapAssessmentWithClaude(
     ? `\nAdditional scope context provided by the requestor: "${customScope}"\n`
     : '';
 
-  const prompt = `You are an expert information security assessor conducting a compliance gap assessment. Write a formal gap assessment document based on NIST SP 800-53 Rev 5 control requirements.
+  const prompt = `You are an expert information security assessor conducting a compliance gap assessment. Write a formal gap assessment document based on ${frameworkName} control requirements.
 
 Framework: ${frameworkName}
-Control Family: ${familyName}
+Control Family / Domain: ${familyName}
 ${scopeInstruction}
 Control Requirements for this family:
 
@@ -207,7 +209,7 @@ Write a complete, production-ready gap assessment document in Markdown. The docu
   7. Recommended Remediation Roadmap (prioritized by risk — High gaps first, with suggested remediation actions)
   8. Next Steps and Review Schedule
 
-Use [Organization Name] wherever the organization name appears. After each control's Required Evidence section, append the applicable control ID(s) at sub-component granularity (e.g., \`[AC-2a]\`, \`[AC-3b]\`). Output only the Markdown document, no preamble.`;
+Use [Organization Name] wherever the organization name appears. After each control's Required Evidence section, append the applicable control ID(s) at sub-component granularity (e.g., \`[AC-2a]\`, \`[AC.L2-3.1.1]\`, \`[CC6.1]\`). Output only the Markdown document, no preamble.`;
 
   return callClaude(prompt, 6000);
 }
@@ -221,7 +223,7 @@ async function generateChecklistWithClaude(
   const controlContext = controls
     .slice(0, 60)
     .map(d => {
-      const id = d.metadata?.control_id || '';
+      const id = resolveControlId(d.metadata);
       const isEnhancement = d.metadata?.is_enhancement;
       const content = d.raw_content?.slice(0, 400) || d.title;
       return `**${id} — ${d.title}**${isEnhancement ? ' *(Enhancement)*' : ''}\n${content}`;
@@ -232,10 +234,10 @@ async function generateChecklistWithClaude(
     ? `\nAdditional scope context provided by the requestor: "${customScope}"\n`
     : '';
 
-  const prompt = `You are an expert information security compliance engineer writing a compliance verification checklist. Write a concise, actionable checklist based on NIST SP 800-53 Rev 5 control requirements.
+  const prompt = `You are an expert information security compliance engineer writing a compliance verification checklist. Write a concise, actionable checklist based on ${frameworkName} control requirements.
 
 Framework: ${frameworkName}
-Control Family: ${familyName}
+Control Family / Domain: ${familyName}
 ${scopeInstruction}
 Control Requirements for this family (including enhancements):
 
@@ -255,9 +257,68 @@ Write a complete, production-ready compliance checklist in Markdown. The documen
   5. Summary Table (Control ID | Checklist Items Count | Status | Notes) — leave Status and Notes blank for the reviewer to fill in
   6. Sign-off block: Reviewer, Role, Date, Signature — with placeholders
 
-Use [Organization Name] wherever the organization name appears. Include the applicable control ID at sub-component granularity on every checklist item. Output only the Markdown document, no preamble.`;
+Use [Organization Name] wherever the organization name appears. Include the applicable control ID at sub-component granularity on every checklist item (e.g., \`[AC-2a]\`, \`[AC.L2-3.1.1]\`, \`[CC6.1]\`). Output only the Markdown document, no preamble.`;
 
   return callClaude(prompt, 5000);
+}
+
+async function generatePoamWithClaude(
+  frameworkName: string,
+  familyName: string,
+  controls: Array<{ title: string; raw_content: string; metadata: Record<string, unknown> }>,
+  customScope?: string,
+): Promise<string> {
+  const controlContext = controls
+    .filter(d => !d.metadata?.is_enhancement)
+    .slice(0, 40)
+    .map(d => {
+      const id = resolveControlId(d.metadata);
+      const content = d.raw_content?.slice(0, 300) || d.title;
+      return `**${id} — ${d.title}**\n${content}`;
+    })
+    .join('\n\n---\n\n');
+
+  const scopeInstruction = customScope
+    ? `\nAdditional scope context provided by the requestor: "${customScope}"\n`
+    : '';
+
+  // Framework-specific POA&M field guidance
+  const frameworkGuidance = frameworkName.includes('FedRAMP')
+    ? `This POA&M must follow FedRAMP requirements: include POA&M ID, Control ID (NIST SP 800-53), Weakness Name, System/Asset, Point of Contact, Resources Required, Scheduled Completion Date, Milestones with Completion Dates, Milestone Changes, and Status. Use FedRAMP risk ratings (Very High/High/Moderate/Low/Very Low). Include the FedRAMP-required "Original Detection Date" and "Deviation Rationale" fields.`
+    : frameworkName.includes('CMMC')
+    ? `This POA&M must follow CMMC requirements: include Practice ID (e.g., AC.L2-3.1.1), Practice Description, Assessment Objective, Current Status, Gap Description, Remediation Plan, Responsible Party, Target Completion Date, Estimated Cost, and CMMC Level (2). Include the DoD-required "Spillover" and "CUI Impact" fields where applicable.`
+    : frameworkName.includes('NIST') || frameworkName.includes('SP 800')
+    ? `This POA&M should follow NIST SP 800-53A assessment guidance: include Control ID, Control Name, Weakness/Deficiency Description, Risk Level, Remediation Actions, Responsible Official, Scheduled Completion Date, Required Resources, Status, and Milestones.`
+    : frameworkName.includes('SOC 2')
+    ? `This POA&M should follow SOC 2 remediation tracking format: include Trust Service Criterion ID (e.g., CC6.1), Criterion Description, Finding, Risk Rating, Management Response, Remediation Owner, Target Date, and Evidence of Remediation.`
+    : `This POA&M should include: Finding ID, Control/Requirement Reference, Weakness Description, Risk Level, Remediation Plan, Responsible Party, Target Completion Date, Status, and Evidence of Remediation.`;
+
+  const prompt = `You are an expert information security compliance officer writing a Plan of Action and Milestones (POA&M) document. Write a formal POA&M based on ${frameworkName} control requirements.
+
+Framework: ${frameworkName}
+Control Family / Domain: ${familyName}
+${scopeInstruction}
+Framework-Specific Requirements: ${frameworkGuidance}
+
+Control Requirements for this family:
+
+${controlContext}
+
+Write a complete, production-ready POA&M document in Markdown. The document must:
+- Represent realistic compliance gaps an organization might face for these controls
+- Each finding should be pre-populated with the control requirement and leave fields for the assessor to fill in
+- Include these sections in order:
+  1. Title (e.g., "${familyName} Plan of Action and Milestones")
+  2. Document Control table: Organization, System Name, POA&M Date, Version, Prepared By — use [Organization Name], [System Name], [Date], [Preparer Name] placeholders
+  3. Executive Summary (purpose, system description, overall risk posture)
+  4. POA&M Items — one row block per control with all framework-required fields as described above. Pre-populate the Control ID, Control/Criterion Name, and a realistic example weakness description. Leave remediation and date fields as [TBD] or blank for the assessor to complete.
+  5. Summary Dashboard (table: Total Findings | Very High | High | Moderate | Low | Open | Closed)
+  6. Milestone Tracking (table: POA&M ID | Milestone | Planned Date | Actual Date | Status)
+  7. Approval and Signature block
+
+Use [Organization Name] wherever the organization name appears. Output only the Markdown document, no preamble.`;
+
+  return callClaude(prompt, 6000);
 }
 
 Deno.serve(async (req: Request) => {
@@ -348,6 +409,13 @@ Deno.serve(async (req: Request) => {
       );
     } else if (template.template_type === 'checklist') {
       content_markdown = await generateChecklistWithClaude(
+        framework?.name || 'Compliance Framework',
+        selected_family || framework?.name || 'Security',
+        documents,
+        custom_scope,
+      );
+    } else if (template.template_type === 'poam') {
+      content_markdown = await generatePoamWithClaude(
         framework?.name || 'Compliance Framework',
         selected_family || framework?.name || 'Security',
         documents,

@@ -8,7 +8,7 @@ INSERT INTO compliance_frameworks (name, abbreviation, category, description, ve
 SELECT
   'FedRAMP High',
   'FedRAMP High',
-  'security',
+  'fedramp',
   'FedRAMP High Baseline — NIST SP 800-53 Rev 5 controls required for cloud systems processing the most sensitive unclassified data (188 controls, 182 enhancements)',
   'Rev 5 High Baseline'
 WHERE NOT EXISTS (SELECT 1 FROM compliance_frameworks WHERE abbreviation = 'FedRAMP High');
@@ -55,7 +55,7 @@ INSERT INTO compliance_frameworks (name, abbreviation, category, description, ve
 SELECT
   'FedRAMP Low',
   'FedRAMP Low',
-  'security',
+  'fedramp',
   'FedRAMP Low Baseline — NIST SP 800-53 Rev 5 controls required for cloud systems with low-impact data (131 controls, 18 families)',
   'Rev 5 Low Baseline'
 WHERE NOT EXISTS (SELECT 1 FROM compliance_frameworks WHERE abbreviation = 'FedRAMP Low');
