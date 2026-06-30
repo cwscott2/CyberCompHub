@@ -32,6 +32,30 @@ const ALLOWED_FAMILY_FIELDS = new Set([
   'step_name',
 ]);
 
+async function callClaude(prompt: string, maxTokens = 4096): Promise<string> {
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': anthropicApiKey,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: maxTokens,
+      messages: [{ role: 'user', content: prompt }],
+    }),
+  });
+
+  if (!response.ok) {
+    const err = await response.text();
+    throw new Error(`Claude API error: ${response.status} ${err}`);
+  }
+
+  const data = await response.json();
+  return data.content?.[0]?.text || '';
+}
+
 async function generatePolicyWithClaude(
   frameworkName: string,
   familyName: string,
@@ -79,27 +103,59 @@ Write a complete, production-ready security policy document in Markdown. The pol
 
 Use [Organization Name] wherever the organization name appears. Do not reference NIST control IDs in prose sentences — translate them into plain requirements. After each paragraph or bulleted requirement in the Policy Requirements section, append the applicable control ID(s) in brackets at the end of the line. Use the most specific reference available — include the sub-component letter when the requirement maps to a specific part, e.g. \`[AC-1a]\`, \`[AC-1c]\`, or \`[AC-2, AC-3b]\`. Output only the Markdown document, no preamble.`;
 
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': anthropicApiKey,
-      'anthropic-version': '2023-06-01',
-    },
-    body: JSON.stringify({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 4096,
-      messages: [{ role: 'user', content: prompt }],
-    }),
-  });
+  return callClaude(prompt);
+}
 
-  if (!response.ok) {
-    const err = await response.text();
-    throw new Error(`Claude API error: ${response.status} ${err}`);
-  }
+async function generateProcedureWithClaude(
+  frameworkName: string,
+  familyName: string,
+  controls: Array<{ title: string; raw_content: string; metadata: Record<string, unknown> }>,
+  customScope?: string,
+): Promise<string> {
+  // Procedures use all controls including enhancements for full implementation detail
+  const controlContext = controls
+    .slice(0, 60)
+    .map(d => {
+      const id = d.metadata?.control_id || '';
+      const isEnhancement = d.metadata?.is_enhancement;
+      const content = d.raw_content?.slice(0, 500) || d.title;
+      return `**${id} — ${d.title}**${isEnhancement ? ' *(Enhancement)*' : ''}\n${content}`;
+    })
+    .join('\n\n---\n\n');
 
-  const data = await response.json();
-  return data.content?.[0]?.text || '';
+  const scopeInstruction = customScope
+    ? `\nAdditional scope context provided by the requestor: "${customScope}"\n`
+    : '';
+
+  const prompt = `You are an expert information security engineer writing implementation procedures for a compliance program. Write formal, actionable procedures based on NIST SP 800-53 Rev 5 control requirements.
+
+Framework: ${frameworkName}
+Control Family: ${familyName}
+${scopeInstruction}
+Control Requirements for this family (including enhancements):
+
+${controlContext}
+
+Write a complete, production-ready procedure document in Markdown. The document must:
+- Be written for the practitioner who will implement the controls — specific, actionable, and testable
+- Translate each control requirement into concrete implementation steps
+- Include these sections in order:
+  1. Title (e.g., "${familyName} Implementation Procedures")
+  2. Document Control table: Organization, Version (1.0), Effective Date, Review Cycle, Owner — use [Organization Name] and [Effective Date] placeholders
+  3. Purpose & Scope (who performs these procedures and what systems they apply to)
+  4. Roles and Responsibilities (table: Role | Responsibilities — include specific roles like ISSO, System Owner, IT Admin)
+  5. Procedures (the main body — organize logically by control grouping, not one section per control ID):
+     For each logical grouping write:
+     - **Step 1 — Understand the Requirement**: What the control mandates in plain language
+     - **Step 2 — Assign Responsibility**: Role accountable for this procedure
+     - **Step 3 — Implement**: Specific, numbered implementation actions (e.g., "Configure Active Directory group policy to..."). Include tool references where applicable ([System/Tool Name] placeholder).
+     - **Step 4 — Verify & Document**: What evidence to collect, how to test, what to record. Include example artifact names (e.g., "Access Control Review Log").
+  6. Testing and Verification Summary (table: Control | Test Method | Evidence Artifact | Frequency)
+  7. Related Policies and References
+
+Use [Organization Name] wherever the organization name appears. After each Step 4 block, append the applicable control ID(s) at sub-component granularity (e.g., \`[AC-2b]\`, \`[AC-3, AC-6a]\`). Output only the Markdown document, no preamble.`;
+
+  return callClaude(prompt, 6000);
 }
 
 Deno.serve(async (req: Request) => {
@@ -168,8 +224,14 @@ Deno.serve(async (req: Request) => {
     let content_markdown = '';
 
     if (template.template_type === 'policy') {
-      // LLM-generated policy document
       content_markdown = await generatePolicyWithClaude(
+        framework?.name || 'Compliance Framework',
+        selected_family || framework?.name || 'Security',
+        documents,
+        custom_scope,
+      );
+    } else if (template.template_type === 'procedure') {
+      content_markdown = await generateProcedureWithClaude(
         framework?.name || 'Compliance Framework',
         selected_family || framework?.name || 'Security',
         documents,

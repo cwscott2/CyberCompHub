@@ -146,6 +146,26 @@ Compliance officers always generate procedure and gap assessment documents scope
 3. Procedure templates for AI frameworks (deferred — thin data)
 4. Risk Register — cross-framework
 
+#### LLM Generation Pattern — All Artifact Types
+
+The LLM generation pattern established for policies applies to all artifact types. The pipeline is identical (fetch controls → build context → call Claude → tag with control IDs); only the prompt and output structure change per type.
+
+| Artifact | Prompt Focus | Control ID Tagging | Family-Scoped |
+|---|---|---|---|
+| **Policy** | Organizational commitments in policy language; purpose, scope, requirements, roles, enforcement | Sub-component level (e.g., `[AC-1a]`) | Yes |
+| **Procedure** | Step-by-step implementation: who does what, how, with what tools, how to verify completion | Sub-component level (e.g., `[AC-2b]`) | Yes |
+| **Gap Assessment** | Current-state vs. required-state; typical evidence artifacts; common gaps per control component | Sub-component level (e.g., `[AC-2a]`) | Yes |
+| **SSP Narrative** | Descriptive "how we implement this control" in NIST SP 800-18 SSP language | Control level (e.g., `[AC-2]`) | Yes |
+| **POA&M** | Finding register with risk level and remediation guidance per control | Control level (e.g., `[AC-2]`) | No (flat) |
+| **Risk Register** | Risk statement, likelihood, impact, recommended mitigations | Control family level | No (flat) |
+
+All LLM-generated artifacts include:
+- `[Organization Name]` and `[Effective Date]` placeholders for customization
+- Control ID tags for assessor traceability
+- Markdown output rendered via `remark-gfm` for proper table display
+
+Implementation order: Policy ✓ → Procedure (next) → Gap Assessment → SSP → Risk Register
+
 #### Policy Generation — Implementation (as of 2026-06-29)
 
 Policy documents are generated via LLM (Claude Haiku) using the framework's ingested control data as RAG context. This produces real policy prose rather than a restatement of control language.
