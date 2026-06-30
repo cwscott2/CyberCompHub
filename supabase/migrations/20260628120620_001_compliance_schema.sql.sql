@@ -77,7 +77,7 @@ CREATE TABLE templates (
   framework_id UUID NOT NULL REFERENCES compliance_frameworks(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
   description TEXT,
-  template_type TEXT NOT NULL CHECK (template_type IN ('policy', 'checklist', 'control-map', 'procedure', 'raci')),
+  template_type TEXT NOT NULL CHECK (template_type IN ('policy', 'checklist', 'control-map', 'procedure', 'raci', 'poam', 'gap_assessment')),
   structure_version TEXT DEFAULT '1.0',
   is_default BOOLEAN DEFAULT false,
   created_at TIMESTAMPTZ DEFAULT NOW(),

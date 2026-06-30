@@ -40,8 +40,19 @@ function getLabel(props: OscalProp[] | undefined, fallback: string): string {
 function getProse(parts: OscalPart[] | undefined, name: string): string {
   const part = parts?.find(p => p.name === name);
   if (!part) return '';
-  if (part.prose) return part.prose;
-  return part.parts?.map(p => p.prose ?? '').join('\n') ?? '';
+  if (!part.parts || part.parts.length === 0) return part.prose ?? '';
+
+  const lines: string[] = [];
+  if (part.prose) lines.push(part.prose);
+  for (const sub of part.parts) {
+    const label = getLabel(sub.props, '');
+    if (sub.prose) lines.push(label ? `${label} ${sub.prose}` : sub.prose);
+    for (const sub2 of sub.parts ?? []) {
+      const label2 = getLabel(sub2.props, '');
+      if (sub2.prose) lines.push(label2 ? `  ${label2} ${sub2.prose}` : `  ${sub2.prose}`);
+    }
+  }
+  return lines.join('\n');
 }
 
 async function generateEmbedding(text: string): Promise<number[]> {
@@ -66,31 +77,36 @@ async function insertDocument(params: {
   metadata: Record<string, unknown>;
   documentType: string;
 }): Promise<void> {
-  const { data: doc, error } = await supabase.from('documents').insert({
-    source_id: params.sourceId,
-    framework_id: params.frameworkId,
-    title: params.title,
-    document_type: params.documentType,
-    url: 'https://csrc.nist.gov/publications/detail/sp/800-53/rev-5/final',
-    version: 'Rev 5',
-    raw_content: params.rawContent,
-    metadata: params.metadata,
-    is_indexed: true,
-  }).select('id').single();
+  try {
+    const { data: doc, error } = await supabase.from('documents').insert({
+      source_id: params.sourceId,
+      framework_id: params.frameworkId,
+      title: params.title,
+      document_type: params.documentType,
+      url: 'https://csrc.nist.gov/publications/detail/sp/800-53/rev-5/final',
+      version: 'Rev 5',
+      raw_content: params.rawContent,
+      metadata: params.metadata,
+      is_indexed: true,
+    }).select('id').single();
 
-  if (error || !doc) {
-    console.error(`Failed to insert "${params.title}":`, error?.message);
-    return;
+    if (error || !doc) {
+      console.error(`Doc insert failed "${params.title}":`, error?.message);
+      return;
+    }
+
+    const embedding = await generateEmbedding(params.rawContent);
+    const { error: chunkError } = await supabase.from('document_chunks').insert({
+      document_id: doc.id,
+      chunk_index: 0,
+      content: params.rawContent,
+      metadata: params.metadata,
+      embedding,
+    });
+    if (chunkError) console.error(`Chunk insert failed "${params.title}":`, chunkError.message);
+  } catch (err) {
+    console.error(`insertDocument exception "${params.title}":`, err);
   }
-
-  const embedding = await generateEmbedding(params.rawContent);
-  await supabase.from('document_chunks').insert({
-    document_id: doc.id,
-    chunk_index: 0,
-    content: params.rawContent,
-    metadata: params.metadata,
-    embedding,
-  });
 }
 
 Deno.serve(async (req: Request) => {
@@ -99,6 +115,13 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
+    // Read family from query param (test panel) or JSON body
+    const url = new URL(req.url);
+    const familyFromQuery = url.searchParams.get('family');
+    const body = req.method === 'POST' ? await req.json().catch(() => ({})) : {};
+    const familyFilter: string | null = familyFromQuery ?? body.family ?? null;
+    console.log('Step 1: body parsed, familyFilter =', familyFilter);
+
     const { data: framework, error: fwError } = await supabase
       .from('compliance_frameworks')
       .select('id')
@@ -106,11 +129,13 @@ Deno.serve(async (req: Request) => {
       .single();
 
     if (fwError || !framework) {
+      console.error('Step 2 FAIL: framework not found', fwError?.message);
       return new Response(
-        JSON.stringify({ error: 'SP 800-53 framework not found' }),
+        JSON.stringify({ error: 'SP 800-53 framework not found', details: fwError?.message }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+    console.log('Step 2: framework found', framework.id);
 
     const { data: sources, error: srcError } = await supabase
       .from('sources')
@@ -121,25 +146,28 @@ Deno.serve(async (req: Request) => {
     const source = sources?.[0] ?? null;
 
     if (srcError || !source) {
+      console.error('Step 3 FAIL: source not found', srcError?.message);
       return new Response(
         JSON.stringify({ error: 'SP 800-53 source not found — seed it via SQL first', details: srcError?.message }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+    console.log('Step 3: source found', source.id);
 
-    const { data: job } = await supabase
+    const { data: job, error: jobError } = await supabase
       .from('ingest_jobs')
       .insert({ source_id: source.id, status: 'in_progress', started_at: new Date().toISOString() })
       .select('id')
       .single();
 
-    // Optional: process a single family per invocation to avoid timeout
-    const body = req.method === 'POST' ? await req.json().catch(() => ({})) : {};
-    const familyFilter: string | null = body.family ?? null; // e.g. "AC", "AT", "AU"
+    if (jobError) console.error('Step 4 WARN: job insert failed', jobError.message);
+    else console.log('Step 4: job created', job?.id);
 
+    console.log('Step 5: fetching OSCAL JSON...');
     const oscalRes = await fetch(OSCAL_URL);
     if (!oscalRes.ok) throw new Error(`Failed to fetch OSCAL JSON: ${oscalRes.statusText}`);
     const oscal: OscalCatalog = await oscalRes.json();
+    console.log('Step 5: OSCAL fetched, groups =', oscal.catalog.groups.length);
 
     let documentsIngested = 0;
 
@@ -147,9 +175,19 @@ Deno.serve(async (req: Request) => {
       ? oscal.catalog.groups.filter(g => g.id.toUpperCase() === familyFilter.toUpperCase())
       : oscal.catalog.groups;
 
+    console.log('Step 6: starting loop, groups to process =', groups.length);
+
     for (const group of groups) {
       const familyAbbr = group.id.toUpperCase();
       const familyName = group.title;
+      const controls = group.controls ?? [];
+      console.log(`Step 6: processing ${familyAbbr} with ${controls.length} controls`);
+
+      // Remove existing docs for this family before reinserting (idempotent)
+      await supabase.from('documents')
+        .delete()
+        .eq('framework_id', framework.id)
+        .eq('metadata->>family_id', familyAbbr);
 
       // Family overview document
       const familyContent = [
@@ -159,7 +197,7 @@ Deno.serve(async (req: Request) => {
         `Framework: NIST Special Publication 800-53 Revision 5`,
         ``,
         `## Controls in this Family`,
-        ...group.controls.map(c => {
+        ...controls.map(c => {
           const label = getLabel(c.props, c.id);
           const enhCount = c.controls?.length ?? 0;
           return `- **${label}** — ${c.title}${enhCount > 0 ? ` (${enhCount} enhancements)` : ''}`;
@@ -176,7 +214,7 @@ Deno.serve(async (req: Request) => {
       });
       documentsIngested++;
 
-      for (const control of group.controls) {
+      for (const control of controls) {
         const controlId = getLabel(control.props, control.id);
         const statement = getProse(control.parts, 'statement');
         const guidance = getProse(control.parts, 'guidance');

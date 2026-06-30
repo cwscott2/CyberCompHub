@@ -1,6 +1,6 @@
 # CyberComplianceHub — Product Requirements Document
 
-**Version:** 1.3.0
+**Version:** 1.4.0
 **Last Updated:** June 29, 2026
 
 ---
@@ -146,6 +146,52 @@ Compliance officers always generate procedure and gap assessment documents scope
 3. Procedure templates for AI frameworks (deferred — thin data)
 4. Risk Register — cross-framework
 
+#### Policy Generation — Implementation (as of 2026-06-29)
+
+Policy documents are generated via LLM (Claude Haiku) using the framework's ingested control data as RAG context. This produces real policy prose rather than a restatement of control language.
+
+**Generation pipeline (`generate-document` edge function):**
+- For `template_type === 'policy'`: fetches base controls for the selected family (up to 40), builds a compact context string (control ID + title + first 400 chars of requirement), and calls Claude Haiku with a structured prompt
+- For all other template types: uses the existing template assembler (deterministic, no LLM call)
+
+**Policy document structure (LLM-generated):**
+1. Title
+2. Document Control table (Organization, Version, Effective Date, Review Cycle, Owner)
+3. Purpose
+4. Scope
+5. Policy Statement
+6. Policy Requirements — plain language, organized by logical control groupings
+7. Roles and Responsibilities (table)
+8. Compliance and Enforcement
+9. Review and Update Schedule
+10. Related Documents
+
+**Key design decisions:**
+- Control sub-components (`a.`, `b.`, `c.`) are preserved in ingested `raw_content` via structured `getProse()` parsing of OSCAL sub-parts — giving Claude the specificity to write accurate policy language per component
+- Control ID tags appended to each requirement at sub-component granularity (e.g., `[AC-1a]`, `[AC-2b]`) — gives assessors traceability to verify all controls are covered
+- `[Organization Name]` and `[Effective Date]` placeholders throughout for easy customization
+- Policy title formatted as `{Family} Security Policy — {Framework Name}`
+- Markdown tables rendered via `remark-gfm` plugin on the frontend
+
+**Ingest requirements for quality policy generation:**
+- OSCAL-sourced frameworks (SP 800-53): `getProse()` must recurse into sub-parts and preserve labels — currently implemented
+- Non-OSCAL frameworks: control `raw_content` must include numbered/lettered sub-requirements where the standard defines them
+- Ingest functions must be idempotent (delete-before-insert per family) to support re-ingestion without duplicates
+
+**Policy generation backlog — remaining frameworks:**
+
+| Framework | Status | Notes |
+|---|---|---|
+| SP 800-53 | ✓ Done | Pattern established — OSCAL sub-parts, sub-component tagging |
+| CMMC | Queued | Similar to SP 800-53; uses `domain_name` family field |
+| FedRAMP Moderate | Queued | SP 800-53 superset; inherits same control structure |
+| ISO 27001 | Queued | Needs full ingest first (currently 8 sample docs only) |
+| NIST CSF | Queued | Function-scoped (Identify, Protect, Detect, Respond, Recover) |
+| NIST RMF | Queued | Process framework — policy generation scoped to RMF steps |
+| SOX | Queued | Section-scoped (302, 404, 409, 802, 906) |
+| EU AI Act | Queued | Title/Article-scoped |
+| SOC 2 | Queued | Trust Service Criteria-scoped (pending ingest) |
+
 **Procedure generation behavior:**
 - Each control formatted as 4-step scaffold: Understand → Assign Responsibility → Implement → Verify
 - Document title includes family name (e.g., "CMMC Access Control Procedures")
@@ -172,7 +218,50 @@ Compliance officers always generate procedure and gap assessment documents scope
 
 ---
 
-### 5. Cross-Framework Control Mapping — P1
+### 5. Artifact Library & Community Sharing — P2 (Not Started)
+
+#### Personal / Org Artifact Library
+
+Users need the ability to save generated artifacts (policies, procedures, checklists, POA&Ms) for future retrieval, editing, and reuse within their organization.
+
+**Requirements:**
+- Save a generated artifact to personal library with a user-defined name and optional notes
+- Retrieve and view saved artifacts from a "My Documents" or "Library" page
+- Version history — track when a document was last edited and by whom
+- Tag artifacts by framework, family, and document type for filtering
+- Team library — shared artifact store visible to all members of an org workspace (requires team workspaces, P3)
+
+**Dependencies:** Requires User Authentication & Workspaces (P3) to be built first. The `generated_documents` table already exists and captures output — the library feature is primarily a UI + RLS layer on top of existing storage.
+
+#### Community Artifact Library
+
+When a generated artifact has not been customized (i.e., `[Organization Name]` and other placeholders remain unmodified), users can opt in to contribute it to a public community library. This creates a network effect: more users → better community starting points → more users.
+
+**How it works:**
+1. **Placeholder detection** — System checks the generated markdown for unreplaced placeholders before offering the share option. Docs with real org names are private-only and never offered for sharing.
+2. **Opt-in contribution** — User clicks "Contribute to Community Library" after generation. Contribution is explicit and voluntary.
+3. **Community browsing** — Any user (including unauthenticated) can browse community policies organized by framework + family + document type. Community docs serve as high-quality starting points before customization.
+4. **Curation** — Community artifacts can be upvoted. Top-rated artifacts surface as featured starting points. Over time this crowdsources higher-quality base templates.
+5. **Framework versioning** — Community artifacts tagged by framework version (e.g., SP 800-53 Rev 5) to prevent stale content from surfacing when frameworks update.
+6. **Moderation** — Flagging mechanism for inappropriate or low-quality contributions. Admin review queue.
+
+**Revenue tiering model:**
+| Tier | Access |
+|---|---|
+| Anonymous | Browse community library, generate (limited) |
+| Registered (free) | Generate unlimited, save to personal library, contribute to community |
+| Team (paid) | Shared org library, version history, custom placeholders, export to DOCX/PDF |
+| Enterprise | Private deployment, bring-your-own LLM key, SSO |
+
+**Technical notes:**
+- Community artifacts stored in a `community_documents` table (separate from `generated_documents`)
+- Placeholder detection via regex scan for `\[Organization Name\]`, `\[Effective Date\]`, etc. before contribution is offered
+- Framework + family + version metadata required on all community contributions for accurate filtering
+- Generated artifacts already saved to `generated_documents` — personal library is an RLS + UI layer on that table
+
+---
+
+### 7. Cross-Framework Control Mapping — P1
 
 Semantic clustering is live (shows "Also in: X, Y" tags). Explicit pre-computed mapping table is backlog.
 
@@ -183,7 +272,7 @@ Semantic clustering is live (shows "Also in: X, Y" tags). Explicit pre-computed 
 
 ---
 
-### 6. Framework Coverage Enhancement — In Progress
+### 8. Framework Coverage Enhancement — In Progress
 
 Enhancing all frameworks to "Good" status (40+ docs, full control coverage).
 
@@ -199,7 +288,7 @@ Enhancing all frameworks to "Good" status (40+ docs, full control coverage).
 
 ---
 
-### 7. Automated Monthly Refresh — P2 (Not Started)
+### 9. Automated Monthly Refresh — P2 (Not Started)
 
 - Scheduled ingest jobs checking official sources for changes
 - Content hash comparison to detect updates
@@ -207,7 +296,7 @@ Enhancing all frameworks to "Good" status (40+ docs, full control coverage).
 
 ---
 
-### 8. User Authentication & Workspaces — P3 (Not Started)
+### 10. User Authentication & Workspaces — P3 (Not Started)
 
 - Supabase Auth for user accounts
 - Saved chat history

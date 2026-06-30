@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { supabase } from '../services/supabase';
 import type { ComplianceFramework, Template } from '../types/compliance';
 
@@ -561,7 +562,7 @@ export default function WizardPage() {
           </div>
 
           <div className="prose prose-sm max-w-none bg-secondary-50 rounded-lg p-4 mb-6 max-h-96 overflow-y-auto scrollbar-thin">
-            <ReactMarkdown>{generatedContent}</ReactMarkdown>
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>{generatedContent}</ReactMarkdown>
           </div>
           <div className="flex items-center justify-between">
             <button
