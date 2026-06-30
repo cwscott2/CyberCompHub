@@ -223,9 +223,23 @@ Policy documents are generated via LLM (Claude Haiku) using the framework's inge
 - Output: markdown table with Finding | Control Reference | Risk Level | Remediation Owner | Due Date | Status
 
 **Export Formats:**
-- ✓ Markdown
-- DOCX — implemented, untested
-- PDF — implemented, untested
+- ✓ Markdown (`.md` download)
+- ✓ DOCX (`.docx` download via `docx` library — real binary, not HTML)
+- PDF — removed from UI pending proper implementation (requires server-side headless browser, e.g., Puppeteer Cloud or Gotenberg); backlog P3
+- Excel (`.xlsx`) — backlog P2; see below
+
+**Export Backlog:**
+
+1. **Excel export for POA&M and Checklist (P2)** — POA&M and compliance checklists are inherently tabular and compliance teams expect to work in Excel. FedRAMP's official POA&M template is an Excel workbook. Implementation: use SheetJS (`xlsx`) in the export-document edge function; parse markdown table rows from the generated content into worksheet rows. Export as `.xlsx`. Applies to `poam` and `checklist` template types initially; extend to gap assessment summary table later.
+
+2. **Framework-specific POA&M requirements (P1)** — POA&M format and required fields vary by framework. Current LLM-generated POA&M uses a generic finding register. Each framework has specific requirements:
+   - **NIST SP 800-53 / RMF**: POA&M must align with NIST SP 800-137 (ISCM) and OMB Memorandum M-02-01. Required fields: Weakness ID, Control ID, Weakness Name, Point of Contact, Resources Required, Scheduled Completion Date, Milestones, Milestone Changes, Status, Comments
+   - **FedRAMP**: Strict template with specific columns — POA&M ID, Control Name, Original Detection Source, Date Identified, Weakness Name, Weakness Description, Weakness Detector Source, Weakness Severity, CVSS Score, CVSS Vector, Resources Required, Scheduled Completion Date, Milestone with Completion Dates, Milestone Changes, Status (Open/Closed/Risk Accepted/Vendor Dependency), Vendor Dependency, Last Vendor Check-in Date, Original Risk Rating, Adjusted Risk Rating, Risk Adjustment, False Positive, Operational Requirement, Deviation Rationale, Supporting Documents, Comments
+   - **CMMC**: POA&M tied to CMMC Assessment scope; must reference Practice IDs and Objective IDs; aligns with DoD Assessment Methodology
+   - **SOC 2**: Management response letter format rather than POA&M; findings linked to Trust Service Criteria
+   - **Action**: Build framework-aware POA&M prompts that instruct Claude to generate the correct fields per framework. Long-term: provide downloadable Excel template pre-populated with the correct column headers per framework.
+
+3. **PDF export (P3)** — True PDF generation requires server-side headless Chrome. Options: Puppeteer Cloud function, Gotenberg (self-hosted), or a third-party service (e.g., PDFShift, Browserless). Defer until SaaS infrastructure is in place.
 
 ---
 

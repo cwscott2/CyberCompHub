@@ -14,8 +14,8 @@ const FAMILY_FIELD_MAP: Record<string, string> = {
   'ISO 27001': 'annex_name',
 };
 
-const FAMILY_SCOPED_TYPES = ['procedure', 'gap_assessment', 'policy'];
-const FAMILY_REQUIRED_TYPES = ['procedure', 'gap_assessment'];
+const FAMILY_SCOPED_TYPES = ['procedure', 'gap_assessment', 'policy', 'checklist', 'poam'];
+const FAMILY_REQUIRED_TYPES = ['procedure', 'gap_assessment', 'checklist'];
 
 const categoryToGroup = (category: string): 'security' | 'ai' | 'financial' => {
   if (category === 'ai-safety') return 'ai';
@@ -173,7 +173,7 @@ export default function WizardPage() {
     }
   };
 
-  const handleExport = async (format: 'markdown' | 'docx' | 'pdf') => {
+  const handleExport = async (format: 'markdown' | 'docx') => {
     if (!generatedDocId) return;
 
     setExporting(true);
@@ -186,33 +186,19 @@ export default function WizardPage() {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
           },
-          body: JSON.stringify({
-            document_id: generatedDocId,
-            format,
-          }),
+          body: JSON.stringify({ document_id: generatedDocId, format }),
         }
       );
 
       if (!response.ok) throw new Error('Export failed');
 
-      if (format === 'markdown') {
-        const text = await response.text();
-        const blob = new Blob([text], { type: 'text/markdown' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `compliance-document-${Date.now()}.md`;
-        a.click();
-        URL.revokeObjectURL(url);
-      } else {
-        const blob = await response.blob();
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `compliance-document-${Date.now()}.${format}`;
-        a.click();
-        URL.revokeObjectURL(url);
-      }
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `compliance-document-${Date.now()}.${format}`;
+      a.click();
+      URL.revokeObjectURL(url);
     } catch (error) {
       console.error('Export error:', error);
       alert('Export failed. Please try again.');
@@ -220,6 +206,7 @@ export default function WizardPage() {
       setExporting(false);
     }
   };
+
 
   const steps: Step[] = ['framework', 'template', 'scope', 'generate', 'export'];
   const currentStepIndex = steps.indexOf(step);
@@ -396,9 +383,19 @@ export default function WizardPage() {
       {/* Step 3: Customize Scope */}
       {step === 'scope' && (
         <div className="card">
-          <h3 className="text-lg font-semibold text-secondary-900 mb-4">
-            Customize Scope
-          </h3>
+          <div className="flex items-start justify-between mb-4">
+            <h3 className="text-lg font-semibold text-secondary-900">
+              Customize Scope
+            </h3>
+            {selectedTemplateObj && (
+              <div className="text-right">
+                <span className="inline-block text-xs font-medium px-2 py-1 rounded-full bg-primary-100 text-primary-700">
+                  {TEMPLATE_TYPE_LABELS[selectedTemplateObj.template_type] ?? selectedTemplateObj.template_type}
+                </span>
+                <p className="text-xs text-secondary-500 mt-1">{selectedTemplateObj.name}</p>
+              </div>
+            )}
+          </div>
           <div className="space-y-6">
             {isFamilyScoped && familyField && (
               <div>
@@ -410,7 +407,7 @@ export default function WizardPage() {
                   <>
                     <p className="text-sm text-secondary-600 mb-2">
                       {isFamilyRequired
-                        ? 'Select the control family to generate procedures for.'
+                        ? `Select the control family to generate this ${TEMPLATE_TYPE_LABELS[selectedTemplateObj?.template_type ?? ''] ?? 'document'} for.`
                         : 'Optionally scope this document to a single control family, or leave blank for a full-framework policy.'}
                     </p>
                     <select
@@ -585,13 +582,6 @@ export default function WizardPage() {
                 className="btn-secondary"
               >
                 Export DOCX
-              </button>
-              <button
-                onClick={() => handleExport('pdf')}
-                disabled={exporting}
-                className="btn-primary"
-              >
-                Export PDF
               </button>
             </div>
           </div>
