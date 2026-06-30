@@ -147,6 +147,21 @@ export default function Dashboard() {
               <p className="text-sm text-secondary-600">Create compliance documents</p>
             </div>
           </a>
+
+          <a
+            href="/knowledge-base"
+            className="flex items-center gap-3 p-4 bg-white rounded-lg border border-secondary-200 hover:border-primary-300 hover:bg-primary-50 transition-all group"
+          >
+            <div className="p-2 bg-purple-100 rounded-lg group-hover:bg-purple-200 transition-colors">
+              <svg className="w-6 h-6 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582 4 8 4s8 1.79 8 4" />
+              </svg>
+            </div>
+            <div>
+              <h3 className="font-medium text-secondary-900">Knowledge Base</h3>
+              <p className="text-sm text-secondary-600">Audit ingested frameworks &amp; sources</p>
+            </div>
+          </a>
         </div>
       </div>
 

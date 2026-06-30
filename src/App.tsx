@@ -3,6 +3,7 @@ import Dashboard from './pages/Dashboard';
 import ChatPage from './pages/ChatPage';
 import SearchPage from './pages/SearchPage';
 import WizardPage from './pages/WizardPage';
+import KnowledgeBasePage from './pages/KnowledgeBasePage';
 
 function App() {
   return (
@@ -53,6 +54,12 @@ function App() {
               >
                 Generate
               </a>
+              <a
+                href="/knowledge-base"
+                className="text-secondary-600 hover:text-primary-600 font-medium transition-colors"
+              >
+                Knowledge Base
+              </a>
             </nav>
           </div>
         </div>
@@ -63,6 +70,7 @@ function App() {
           <Route path="/chat" element={<ChatPage />} />
           <Route path="/search" element={<SearchPage />} />
           <Route path="/wizard" element={<WizardPage />} />
+          <Route path="/knowledge-base" element={<KnowledgeBasePage />} />
         </Routes>
       </main>
     </div>
