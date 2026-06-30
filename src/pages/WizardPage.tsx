@@ -10,6 +10,8 @@ const FAMILY_FIELD_MAP: Record<string, string> = {
   'CMMC': 'domain_name',
   'SP 800-53': 'family_name',
   'FedRAMP': 'family_name',
+  'FedRAMP High': 'family_name',
+  'FedRAMP Low': 'family_name',
   'NIST CSF': 'function_name',
   'ISO 27001': 'annex_name',
   'SOC 2': 'trust_service_category',
