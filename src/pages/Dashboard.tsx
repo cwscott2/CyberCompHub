@@ -1,18 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../services/supabase';
+import { categoryToGroup, FRAMEWORK_GROUPS as groupConfig } from '../utils/frameworkGroups';
 import type { ComplianceFramework, IngestJob } from '../types/compliance';
-
-const categoryToGroup = (category: string): 'security' | 'ai' | 'financial' => {
-  if (category === 'ai-safety') return 'ai';
-  if (category === 'sox') return 'financial';
-  return 'security'; // nist, iso, fedramp, cmmc
-};
-
-const groupConfig: Record<string, { label: string; icon: string; accent: string }> = {
-  security: { label: 'Cybersecurity Frameworks', icon: '🛡️', accent: 'border-primary-200 bg-primary-50' },
-  ai:       { label: 'AI Governance Frameworks', icon: '🤖', accent: 'border-purple-200 bg-purple-50' },
-  financial:{ label: 'Financial Compliance',      icon: '📋', accent: 'border-amber-200 bg-amber-50' },
-};
 
 export default function Dashboard() {
   const [frameworks, setFrameworks] = useState<ComplianceFramework[]>([]);

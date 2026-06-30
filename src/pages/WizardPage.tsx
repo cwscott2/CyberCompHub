@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { supabase } from '../services/supabase';
+import { callEdgeFunction } from '../services/api';
+import { categoryToGroup, FRAMEWORK_GROUPS } from '../utils/frameworkGroups';
 import type { ComplianceFramework, Template } from '../types/compliance';
 
 type Step = 'framework' | 'template' | 'scope' | 'generate' | 'export';
@@ -32,17 +34,6 @@ const FAMILY_FIELD_MAP: Record<string, string> = {
 const FAMILY_SCOPED_TYPES = ['procedure', 'gap_assessment', 'policy', 'checklist', 'poam'];
 const FAMILY_REQUIRED_TYPES = ['procedure', 'gap_assessment', 'checklist'];
 
-const categoryToGroup = (category: string): 'security' | 'ai' | 'financial' => {
-  if (category === 'ai-safety') return 'ai';
-  if (category === 'sox') return 'financial';
-  return 'security';
-};
-
-const FRAMEWORK_GROUPS: Record<string, { label: string; icon: string; accent: string }> = {
-  security:  { label: 'Cybersecurity Frameworks', icon: '🛡️', accent: 'border-primary-200 bg-primary-50' },
-  financial: { label: 'Financial Compliance',      icon: '📋', accent: 'border-amber-200 bg-amber-50' },
-  ai:        { label: 'AI Governance Frameworks',  icon: '🤖', accent: 'border-purple-200 bg-purple-50' },
-};
 
 const TEMPLATE_TYPE_LABELS: Record<string, string> = {
   policy:       'Policy',
@@ -69,6 +60,7 @@ export default function WizardPage() {
   const [generatedContent, setGeneratedContent] = useState<string>('');
   const [generatedDocId, setGeneratedDocId] = useState<string>('');
   const [exporting, setExporting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const selectedTemplateObj = templates.find(t => t.id === selectedTemplate);
   const isFamilyScoped = selectedTemplateObj
@@ -96,6 +88,12 @@ export default function WizardPage() {
 
   useEffect(() => {
     if (selectedFramework) {
+      // Reset dependent state whenever framework changes
+      setSelectedTemplate('');
+      setSelectedFamily('');
+      setSelectedControls([]);
+      setError(null);
+
       supabase
         .from('templates')
         .select('*')
@@ -151,37 +149,27 @@ export default function WizardPage() {
 
   const handleGenerate = async () => {
     setGenerating(true);
+    setError(null);
     setStep('generate');
 
     try {
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-document`,
+      const data = await callEdgeFunction<{ content_markdown: string; document_id: string }>(
+        'generate-document',
         {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-          },
-          body: JSON.stringify({
-            framework_id: selectedFramework,
-            template_id: selectedTemplate,
-            custom_scope: customScope || null,
-            selected_controls: selectedControls.length > 0 ? selectedControls : null,
-            selected_family: selectedFamily || null,
-            family_metadata_field: (selectedFamily && familyField) ? familyField : null,
-          }),
+          framework_id: selectedFramework,
+          template_id: selectedTemplate,
+          custom_scope: customScope || null,
+          selected_controls: selectedControls.length > 0 ? selectedControls : null,
+          selected_family: selectedFamily || null,
+          family_metadata_field: (selectedFamily && familyField) ? familyField : null,
         }
       );
-
-      if (!response.ok) throw new Error('Generation failed');
-
-      const data = await response.json();
       setGeneratedContent(data.content_markdown);
       setGeneratedDocId(data.document_id);
       setStep('export');
-    } catch (error) {
-      console.error('Generation error:', error);
-      alert('Failed to generate document. Please try again.');
+    } catch (err) {
+      console.error('Generation error:', err);
+      setError('Failed to generate document. Please try again.');
       setStep('scope');
     } finally {
       setGenerating(false);
@@ -190,34 +178,30 @@ export default function WizardPage() {
 
   const handleExport = async (format: 'markdown' | 'docx' | 'xlsx') => {
     if (!generatedDocId) return;
-
     setExporting(true);
+    setError(null);
     try {
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/export-document`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-          },
-          body: JSON.stringify({ document_id: generatedDocId, format }),
-        }
-      );
-
+      const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
+      const ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/export-document`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${ANON_KEY}` },
+        body: JSON.stringify({ document_id: generatedDocId, format }),
+      });
       if (!response.ok) throw new Error('Export failed');
-
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
       const ext = format === 'xlsx' ? 'xlsx' : format === 'docx' ? 'docx' : 'md';
       a.download = `compliance-document-${Date.now()}.${ext}`;
+      document.body.appendChild(a);
       a.click();
-      URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error('Export error:', error);
-      alert('Export failed. Please try again.');
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (err) {
+      console.error('Export error:', err);
+      setError('Export failed. Please try again.');
     } finally {
       setExporting(false);
     }
@@ -271,6 +255,15 @@ export default function WizardPage() {
           <span>Generate</span>
         </div>
       </div>
+
+      {/* Inline error banner */}
+      {error && (
+        <div className="mb-6 p-4 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm flex items-start gap-2">
+          <span className="font-medium">Error:</span>
+          <span>{error}</span>
+          <button onClick={() => setError(null)} className="ml-auto text-red-400 hover:text-red-600">✕</button>
+        </div>
+      )}
 
       {/* Step 1: Select Framework */}
       {step === 'framework' && (

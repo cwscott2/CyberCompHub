@@ -2,10 +2,29 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+  'Access-Control-Allow-Origin': 'https://cybercompliancehub.vercel.app',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Client-Info, Apikey',
 };
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function validateAuth(req: Request): Response | null {
+  const auth = req.headers.get('Authorization');
+  if (!auth || !auth.startsWith('Bearer ')) {
+    return new Response(
+      JSON.stringify({ error: 'Unauthorized' }),
+      { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+  return null;
+}
+
+function sanitizeScope(scope: string | undefined): string | undefined {
+  if (!scope) return undefined;
+  // Cap length and strip anything that looks like a prompt injection attempt
+  return scope.slice(0, 500).replace(/ignore (previous|all|above)/gi, '');
+}
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -327,6 +346,9 @@ Deno.serve(async (req: Request) => {
     return new Response(null, { status: 200, headers: corsHeaders });
   }
 
+  const authError = validateAuth(req);
+  if (authError) return authError;
+
   try {
     const { framework_id, template_id, custom_scope, selected_controls, selected_family, family_metadata_field }: GenerateRequest = await req.json();
 
@@ -336,6 +358,15 @@ Deno.serve(async (req: Request) => {
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    if (!UUID_RE.test(framework_id) || !UUID_RE.test(template_id)) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid ID format' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const sanitized_scope = sanitizeScope(custom_scope);
 
     const { data: template, error: templateError } = await supabase
       .from('templates')
@@ -392,35 +423,35 @@ Deno.serve(async (req: Request) => {
         framework?.name || 'Compliance Framework',
         selected_family || framework?.name || 'Security',
         documents,
-        custom_scope,
+        sanitized_scope,
       );
     } else if (template.template_type === 'procedure') {
       content_markdown = await generateProcedureWithClaude(
         framework?.name || 'Compliance Framework',
         selected_family || framework?.name || 'Security',
         documents,
-        custom_scope,
+        sanitized_scope,
       );
     } else if (template.template_type === 'gap_assessment') {
       content_markdown = await generateGapAssessmentWithClaude(
         framework?.name || 'Compliance Framework',
         selected_family || framework?.name || 'Security',
         documents,
-        custom_scope,
+        sanitized_scope,
       );
     } else if (template.template_type === 'checklist') {
       content_markdown = await generateChecklistWithClaude(
         framework?.name || 'Compliance Framework',
         selected_family || framework?.name || 'Security',
         documents,
-        custom_scope,
+        sanitized_scope,
       );
     } else if (template.template_type === 'poam') {
       content_markdown = await generatePoamWithClaude(
         framework?.name || 'Compliance Framework',
         selected_family || framework?.name || 'Security',
         documents,
-        custom_scope,
+        sanitized_scope,
       );
     } else {
       // Template assembly for checklist, procedure, poam, etc.
@@ -434,12 +465,12 @@ Deno.serve(async (req: Request) => {
           sectionContent = `# ${template.name}\n\n`;
           sectionContent += `**Framework:** ${framework?.name || 'Compliance Framework'}\n`;
           sectionContent += `**Generated:** ${new Date().toLocaleDateString()}\n`;
-          if (custom_scope) sectionContent += `**Scope:** ${custom_scope}\n`;
+          if (sanitized_scope) sectionContent += `**Scope:** ${sanitized_scope}\n`;
           sectionContent += '\n---\n\n';
         } else if (section.section_key === 'introduction') {
           sectionContent = `## Introduction\n\n`;
           sectionContent += `This document provides guidance for implementing controls from ${framework?.name || 'the compliance framework'}.`;
-          if (custom_scope) sectionContent += ` The scope of this document is: ${custom_scope}.`;
+          if (sanitized_scope) sectionContent += ` The scope of this document is: ${sanitized_scope}.`;
           sectionContent += '\n\n';
         } else if (section.section_key === 'controls' && documents) {
           const isProcedure = template.template_type === 'procedure';
@@ -513,7 +544,7 @@ Deno.serve(async (req: Request) => {
         template_id,
         content_markdown,
         metadata: {
-          custom_scope,
+          sanitized_scope,
           selected_controls,
           selected_family: selected_family || null,
           family_metadata_field: family_metadata_field || null,
@@ -537,8 +568,9 @@ Deno.serve(async (req: Request) => {
     );
   } catch (error) {
     console.error('Generation error:', error);
+    console.error('Generation error:', String(error));
     return new Response(
-      JSON.stringify({ error: 'Internal server error', details: String(error) }),
+      JSON.stringify({ error: 'Internal server error' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

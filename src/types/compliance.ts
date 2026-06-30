@@ -81,7 +81,7 @@ export interface ChunkMetadata {
 }
 
 // Template types
-export type TemplateType = 'policy' | 'checklist' | 'control-map' | 'procedure' | 'raci';
+export type TemplateType = 'policy' | 'checklist' | 'control-map' | 'procedure' | 'raci' | 'gap_assessment' | 'poam';
 
 export interface Template {
   id: string;
@@ -197,7 +197,7 @@ export interface GenerationRequest {
 }
 
 // Export types
-export type ExportFormat = 'markdown' | 'docx' | 'pdf';
+export type ExportFormat = 'markdown' | 'docx' | 'xlsx';
 
 export interface ExportRequest {
   document_id: string;

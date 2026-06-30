@@ -1,0 +1,29 @@
+<h2>Where should the family picker live in the wizard?</h2>
+<p class="subtitle">The family picker filters controls to a single security domain (e.g. "Access Control"). Here are three placement options.</p>
+
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Step 3 — Between Template and Scope</h3>
+      <p>Framework → Template → <strong>Family</strong> → Scope/Controls → Generate → Export</p>
+      <p style="margin-top:8px;font-size:13px;color:#666;">Family picker appears as its own dedicated step. Controls list is pre-filtered when the user arrives at Scope. Clean separation of concerns. Adds one step to the flow.</p>
+    </div>
+  </div>
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Inline on the Template step</h3>
+      <p>Framework → Template + Family → Scope/Controls → Generate → Export</p>
+      <p style="margin-top:8px;font-size:13px;color:#666;">After picking a procedure/gap template, a family dropdown appears inline on the same card. One fewer step. Family selector only appears for template types that require it (procedure, gap_assessment).</p>
+    </div>
+  </div>
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Top of Scope step</h3>
+      <p>Framework → Template → Scope (family first, then controls) → Generate → Export</p>
+      <p style="margin-top:8px;font-size:13px;color:#666;">No new step added. Family picker sits at the top of the existing Scope card. Selecting a family dynamically filters the controls list below it. Simplest diff — only one card changes.</p>
+    </div>
+  </div>
+</div>
