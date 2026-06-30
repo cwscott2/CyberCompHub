@@ -314,6 +314,11 @@ export default function WizardPage() {
                           </span>
                         )}
                       </div>
+                      {framework.abbreviation === 'NIST RMF' && (
+                        <p className="mt-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1">
+                          Process framework — for security control policies (AC, AU, CM…) use SP 800-53 instead.
+                        </p>
+                      )}
                     </button>
                   ))}
                 </div>
@@ -329,6 +334,16 @@ export default function WizardPage() {
           <h3 className="text-lg font-semibold text-secondary-900 mb-4">
             Select Document Type
           </h3>
+          {selectedFrameworkObj?.abbreviation === 'NIST RMF' && (
+            <div className="mb-4 flex gap-3 items-start rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
+              <span className="text-amber-500 text-lg shrink-0">⚠️</span>
+              <div className="text-sm text-amber-800">
+                <strong>NIST RMF is a process framework.</strong> It describes how to manage risk (Prepare → Categorize → Select → Implement → Assess → Authorize → Monitor), not what security controls to implement.
+                <br />
+                If you need a policy for a specific security control family (e.g., Access Control), use <strong>SP 800-53</strong> instead — that's the control catalog RMF points to.
+              </div>
+            </div>
+          )}
           {templates.length === 0 ? (
             <div className="text-center py-8 text-secondary-600">
               No templates available for this framework yet.
