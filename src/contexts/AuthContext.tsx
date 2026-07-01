@@ -35,7 +35,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       .eq('id', userId)
       .maybeSingle();
     if (error) console.error('[AuthContext] fetchDisplayName error:', error);
-    console.log('[AuthContext] profile data:', data);
 
     if (data?.display_name) {
       setDisplayName(data.display_name);
