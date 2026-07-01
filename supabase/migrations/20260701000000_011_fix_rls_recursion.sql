@@ -42,3 +42,16 @@ CREATE POLICY "platform_admins_update_all_orgs" ON organizations
 CREATE POLICY "platform_admins_insert_orgs" ON organizations
   FOR INSERT TO authenticated
   WITH CHECK (is_platform_admin());
+
+-- Platform admins can manage all org_members
+CREATE POLICY "platform_admins_insert_org_members" ON org_members
+  FOR INSERT TO authenticated
+  WITH CHECK (is_platform_admin());
+
+CREATE POLICY "platform_admins_update_org_members" ON org_members
+  FOR UPDATE TO authenticated
+  USING (is_platform_admin());
+
+CREATE POLICY "platform_admins_delete_org_members" ON org_members
+  FOR DELETE TO authenticated
+  USING (is_platform_admin());
