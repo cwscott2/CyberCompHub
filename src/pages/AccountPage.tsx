@@ -3,7 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../services/supabase';
 
 export default function AccountPage() {
-  const { user } = useAuth();
+  const { user, refreshDisplayName } = useAuth();
   const [displayName, setDisplayName] = useState('');
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -27,6 +27,7 @@ export default function AccountPage() {
       setError(error.message);
     } else {
       setSaved(true);
+      await refreshDisplayName();
       setTimeout(() => setSaved(false), 3000);
     }
     setSaving(false);

@@ -20,7 +20,7 @@ const NAV_LINKS = [
 
 export default function AppLayout() {
   const location = useLocation();
-  const { user, signOut } = useAuth();
+  const { user, displayName, signOut } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const isActive = (to: string) => location.pathname === to;
@@ -70,7 +70,7 @@ export default function AppLayout() {
                 className="text-xs text-secondary-500 hover:text-secondary-800 truncate max-w-[180px] transition-colors"
                 aria-label="Account settings"
               >
-                {user?.email}
+                {displayName ?? user?.email}
               </Link>
               <button
                 onClick={signOut}
