@@ -68,18 +68,11 @@ export default function SocialLoginButtons({ mode = 'signin' }: SocialLoginButto
     // On success the browser redirects — no need to clear loading state
   };
 
-  const label = mode === 'signup' ? 'Sign up with' : 'Continue with';
+  const label = mode === 'signup' ? 'Sign up with' : 'Sign in with';
 
   return (
     <div>
-      <div className="relative my-6">
-        <div className="absolute inset-0 flex items-center" aria-hidden="true">
-          <div className="w-full border-t border-secondary-200" />
-        </div>
-        <div className="relative flex justify-center text-xs text-secondary-500 bg-white px-2">
-          Or {label.toLowerCase().replace('or ', '')}
-        </div>
-      </div>
+      <p className="text-center text-sm font-medium text-secondary-600 mb-4">{label}</p>
 
       {error && (
         <div role="alert" className="mb-3 p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">
