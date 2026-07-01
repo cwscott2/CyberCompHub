@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { Routes, Route, Link, useLocation, Navigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useInactivityTimeout } from '../hooks/useInactivityTimeout';
+import InactivityWarningModal from '../components/InactivityWarningModal';
 import Dashboard from '../pages/Dashboard';
 import ChatPage from '../pages/ChatPage';
 import SearchPage from '../pages/SearchPage';
@@ -27,11 +29,13 @@ export default function AppLayout() {
   const location = useLocation();
   const { user, displayName, isPlatformAdmin, signOut } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { showWarning, staySignedIn } = useInactivityTimeout(signOut);
 
   const isActive = (to: string) => location.pathname === to;
 
   return (
     <div className="min-h-screen flex flex-col bg-secondary-50">
+      {showWarning && <InactivityWarningModal onStay={staySignedIn} onSignOut={signOut} />}
       <a
         href="#main-content"
         className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:px-4 focus:py-2 focus:bg-white focus:text-primary-600 focus:rounded focus:shadow-md"
@@ -75,8 +79,8 @@ export default function AppLayout() {
                   to="/app/admin/users"
                   className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
                     location.pathname.startsWith('/app/admin')
-                      ? 'bg-red-50 text-red-600'
-                      : 'text-red-500 hover:text-red-700 hover:bg-red-50'
+                      ? 'bg-secondary-200 text-primary-700'
+                      : 'text-secondary-500 hover:text-secondary-800 hover:bg-secondary-100'
                   }`}
                 >
                   Admin
@@ -143,7 +147,7 @@ export default function AppLayout() {
                   <Link
                     to="/app/admin/users"
                     onClick={() => setMobileOpen(false)}
-                    className="block px-3 py-2 rounded-md text-sm text-red-600 font-medium hover:bg-red-50"
+                    className="block px-3 py-2 rounded-md text-sm text-primary-700 font-medium hover:bg-secondary-100"
                   >
                     Admin
                   </Link>

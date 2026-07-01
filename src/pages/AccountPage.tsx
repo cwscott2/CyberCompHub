@@ -1,6 +1,14 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../services/supabase';
+
+interface GeneratedDoc {
+  id: string;
+  title: string;
+  created_at: string;
+  framework: { name: string; abbreviation: string } | null;
+  template: { name: string } | null;
+}
 
 export default function AccountPage() {
   const { user, refreshDisplayName } = useAuth();
@@ -12,6 +20,21 @@ export default function AccountPage() {
   const [changingPassword, setChangingPassword] = useState(false);
   const [passwordSaved, setPasswordSaved] = useState(false);
   const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [generatedDocs, setGeneratedDocs] = useState<GeneratedDoc[]>([]);
+  const [docsLoading, setDocsLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadDocs() {
+      const { data } = await supabase
+        .from('generated_documents')
+        .select('id, title, created_at, framework:compliance_frameworks(name, abbreviation), template:templates(name)')
+        .order('created_at', { ascending: false })
+        .limit(50);
+      setGeneratedDocs((data as unknown as GeneratedDoc[]) ?? []);
+      setDocsLoading(false);
+    }
+    loadDocs();
+  }, []);
 
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,11 +76,12 @@ export default function AccountPage() {
 
   const PLAN_LABELS: Record<string, { label: string; color: string }> = {
     free: { label: 'Free', color: 'bg-secondary-100 text-secondary-700' },
+    beta: { label: 'Beta', color: 'bg-blue-100 text-blue-700' },
     pro: { label: 'Pro', color: 'bg-primary-100 text-primary-700' },
     team: { label: 'Team', color: 'bg-purple-100 text-purple-700' },
     enterprise: { label: 'Enterprise', color: 'bg-amber-100 text-amber-700' },
   };
-  const plan = PLAN_LABELS['free']; // Will be dynamic once billing is wired
+  const plan = PLAN_LABELS['free'];
 
   return (
     <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -72,12 +96,7 @@ export default function AccountPage() {
         <p className="text-sm text-secondary-600 mb-4">
           Free tier: 10 AI chat messages/day, 3 document generations/month.
         </p>
-        <a
-          href="/#pricing"
-          className="btn-primary text-sm"
-        >
-          Upgrade plan
-        </a>
+        <a href="/#pricing" className="btn-primary text-sm">Upgrade plan</a>
       </section>
 
       {/* Profile */}
@@ -139,6 +158,39 @@ export default function AccountPage() {
         </form>
       </section>
 
+      {/* Generated Documents History */}
+      <section className="card mb-6">
+        <h3 className="text-base font-semibold text-secondary-900 mb-4">Generated Documents</h3>
+        {docsLoading ? (
+          <p className="text-sm text-secondary-400">Loading…</p>
+        ) : generatedDocs.length === 0 ? (
+          <p className="text-sm text-secondary-500">
+            No documents generated yet.{' '}
+            <a href="/app/wizard" className="text-primary-600 hover:underline">Generate your first document →</a>
+          </p>
+        ) : (
+          <div className="divide-y divide-secondary-100">
+            {generatedDocs.map(doc => (
+              <div key={doc.id} className="py-3 flex items-start justify-between gap-4">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-secondary-900 truncate">{doc.title}</p>
+                  <p className="text-xs text-secondary-500 mt-0.5">
+                    {doc.framework?.abbreviation ?? '—'} · {doc.template?.name ?? '—'} ·{' '}
+                    {new Date(doc.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                  </p>
+                </div>
+                <a
+                  href={`/app/wizard?doc=${doc.id}`}
+                  className="text-xs text-primary-600 hover:underline shrink-0"
+                >
+                  View
+                </a>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
       {/* Danger zone */}
       <section className="card border-red-200">
         <h3 className="text-base font-semibold text-red-700 mb-2">Delete Account</h3>
@@ -149,7 +201,6 @@ export default function AccountPage() {
           type="button"
           onClick={() => {
             if (confirm('Are you sure you want to delete your account? This cannot be undone.')) {
-              // Deletion request — handled manually until a dedicated edge function is built
               window.location.href = 'mailto:support@cybercompliancehub.com?subject=Account deletion request&body=Please delete my account: ' + user?.email;
             }
           }}

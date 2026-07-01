@@ -17,15 +17,26 @@ interface FrameworkStats {
 }
 
 const SCRAPER_LABELS: Record<string, string> = {
-  'nist-json': 'NIST OSCAL JSON',
-  'nist-csf': 'NIST CSF JSON',
+  'nist-json': 'NIST OSCAL',
+  'nist-csf': 'NIST CSF',
   'nist-rmf': 'NIST RMF',
   'iso-api': 'ISO API',
-  'fedramp-csv': 'FedRAMP OSCAL',
+  'fedramp-csv': 'FedRAMP',
   'cmmc-web': 'CMMC Web',
   'generic-pdf': 'PDF',
   'generic-webpage': 'Web',
 };
+
+function formatDate(iso: string | null) {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function QualityBadge({ count }: { count: number }) {
+  if (count >= 40) return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700"><span aria-hidden="true">✓</span>Good</span>;
+  if (count >= 15) return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700"><span aria-hidden="true">△</span>Partial</span>;
+  return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700"><span aria-hidden="true">✗</span>Thin</span>;
+}
 
 export default function KnowledgeBasePage() {
   const [stats, setStats] = useState<FrameworkStats[]>([]);
@@ -37,7 +48,6 @@ export default function KnowledgeBasePage() {
 
   useEffect(() => {
     async function load() {
-      // Fetch all frameworks with their source info
       const { data: frameworks } = await supabase
         .from('compliance_frameworks')
         .select('id, name, abbreviation, category, version')
@@ -45,13 +55,12 @@ export default function KnowledgeBasePage() {
 
       if (!frameworks) { setLoading(false); return; }
 
-      // Fetch document counts and source info per framework
       const statsArr: FrameworkStats[] = await Promise.all(
         frameworks.map(async (fw) => {
           const [{ count: docCount }, { count: controlCount }, { data: sources }] = await Promise.all([
             supabase.from('documents').select('*', { count: 'exact', head: true }).eq('framework_id', fw.id),
             supabase.from('documents').select('*', { count: 'exact', head: true }).eq('framework_id', fw.id).eq('document_type', 'control'),
-            supabase.from('sources').select('url, scraper_type, created_at').eq('framework_id', fw.id).order('created_at').limit(1),
+            supabase.from('sources').select('url, scraper_type, created_at').eq('framework_id', fw.id).order('created_at', { ascending: false }).limit(1),
           ]);
 
           const source = sources?.[0];
@@ -104,7 +113,6 @@ export default function KnowledgeBasePage() {
   })).filter(g => g.items.length > 0);
 
   const totalDocs = stats.reduce((sum, s) => sum + s.doc_count, 0);
-  const totalFrameworks = stats.length;
 
   if (loading) {
     return (
@@ -116,17 +124,14 @@ export default function KnowledgeBasePage() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      {/* Header */}
       <div className="mb-8">
         <h2 className="text-2xl font-bold text-secondary-900 mb-1">Knowledge Base</h2>
         <p className="text-secondary-600">
-          Audit what's ingested before trusting citations —{' '}
-          <span className="font-medium text-secondary-800">{totalFrameworks} frameworks</span>,{' '}
+          {stats.length} frameworks &mdash;{' '}
           <span className="font-medium text-secondary-800">{totalDocs.toLocaleString()} documents</span>
         </p>
       </div>
 
-      {/* Search — H12: explicit label */}
       <div className="mb-6">
         <label htmlFor="kb-search" className="sr-only">Filter frameworks</label>
         <input
@@ -139,91 +144,102 @@ export default function KnowledgeBasePage() {
         />
       </div>
 
-      {/* Framework groups */}
       {grouped.map(({ group, config, items }) => (
         <div key={group} className="mb-10">
-          <div className="flex items-center gap-2 mb-4">
-            {/* H4: decorative emoji hidden from screen readers */}
+          <div className="flex items-center gap-2 mb-3">
             <span className="text-lg" aria-hidden="true">{config.icon}</span>
-            <h3 className="text-base font-semibold text-secondary-700 uppercase tracking-wide">
-              {config.label}
-            </h3>
-            <span className="text-xs text-secondary-400 font-normal">
-              ({items.reduce((s, i) => s + i.doc_count, 0).toLocaleString()} docs)
-            </span>
+            <h3 className="text-base font-semibold text-secondary-700 uppercase tracking-wide">{config.label}</h3>
+            <span className="text-xs text-secondary-400">({items.reduce((s, i) => s + i.doc_count, 0).toLocaleString()} docs)</span>
           </div>
 
-          <div className="space-y-3">
-            {items.map(fw => (
-              <div key={fw.id} className={`rounded-xl border ${config.accent} overflow-hidden`}>
-                {/* Row */}
-                {/* M3: aria-expanded so screen readers know collapsed/expanded state */}
+          <div className={`rounded-xl border ${config.accent} overflow-hidden`}>
+            {/* Column headers */}
+            <div className="hidden sm:grid grid-cols-[1fr_80px_80px_100px_90px_130px_28px] gap-x-4 px-5 py-2 bg-black/[0.03] border-b border-black/[0.06] text-xs font-medium text-secondary-500 uppercase tracking-wide">
+              <div>Framework</div>
+              <div className="text-right">Docs</div>
+              <div className="text-right">Controls</div>
+              <div className="text-center">Source</div>
+              <div className="text-center">Quality</div>
+              <div className="text-right">Last Ingested</div>
+              <div />
+            </div>
+
+            {items.map((fw, idx) => (
+              <div key={fw.id}>
                 <button
                   onClick={() => loadDocTitles(fw.id)}
                   aria-expanded={expandedId === fw.id}
                   aria-label={`${fw.name} — ${expandedId === fw.id ? 'collapse' : 'expand'} document list`}
-                  className="w-full text-left px-5 py-4 flex items-center gap-4 hover:bg-black/[0.02] transition-colors"
+                  className={`w-full text-left px-5 py-4 hover:bg-black/[0.02] transition-colors ${idx > 0 ? 'border-t border-black/[0.06]' : ''}`}
                 >
-                  {/* Framework name */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-semibold text-secondary-900">{fw.name}</span>
-                      <span className="text-xs bg-white border border-secondary-200 rounded px-1.5 py-0.5 text-secondary-500 font-mono">
-                        {fw.abbreviation}
-                      </span>
-                      {fw.version && (
-                        <span className="text-xs text-secondary-400">{fw.version}</span>
-                      )}
+                  {/* Mobile layout */}
+                  <div className="sm:hidden flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-semibold text-secondary-900">{fw.name}</span>
+                        <span className="text-xs bg-white border border-secondary-200 rounded px-1.5 py-0.5 text-secondary-500 font-mono">{fw.abbreviation}</span>
+                        {fw.version && <span className="text-xs text-secondary-400">{fw.version}</span>}
+                      </div>
+                      <div className="flex items-center gap-3 mt-1 text-xs text-secondary-500">
+                        <span>{fw.doc_count.toLocaleString()} docs</span>
+                        <span>{fw.control_count.toLocaleString()} controls</span>
+                      </div>
                     </div>
-                    {fw.source_url && (
-                      <a
-                        href={fw.source_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={e => e.stopPropagation()}
-                        className="text-xs text-primary-600 hover:underline truncate block mt-0.5 max-w-md"
-                      >
-                        {fw.source_url}
-                      </a>
-                    )}
+                    <span className="text-secondary-400 text-sm shrink-0">{loadingDocs === fw.id ? '…' : expandedId === fw.id ? '▲' : '▼'}</span>
                   </div>
 
-                  {/* Stats */}
-                  <div className="flex items-center gap-6 shrink-0 text-right">
-                    <div>
-                      <div className="text-lg font-bold text-secondary-900">{fw.doc_count.toLocaleString()}</div>
-                      <div className="text-xs text-secondary-500">docs</div>
-                    </div>
-                    <div>
-                      <div className="text-lg font-bold text-secondary-900">{fw.control_count.toLocaleString()}</div>
-                      <div className="text-xs text-secondary-500">controls</div>
-                    </div>
-                    {fw.source_scraper_type && (
-                      <div className="hidden sm:block">
-                        <div className="text-xs font-medium text-secondary-600 bg-white border border-secondary-200 rounded px-2 py-1">
-                          {SCRAPER_LABELS[fw.source_scraper_type] ?? fw.source_scraper_type}
-                        </div>
+                  {/* Desktop table layout */}
+                  <div className="hidden sm:grid grid-cols-[1fr_80px_80px_100px_90px_130px_28px] gap-x-4 items-center">
+                    {/* Framework name */}
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-semibold text-secondary-900">{fw.name}</span>
+                        <span className="text-xs bg-white border border-secondary-200 rounded px-1.5 py-0.5 text-secondary-500 font-mono">{fw.abbreviation}</span>
+                        {fw.version && <span className="text-xs text-secondary-400">{fw.version}</span>}
                       </div>
-                    )}
-                    {/* M2: quality badge — symbol aria-hidden, text visually present */}
-                    <div className={`hidden sm:flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full ${
-                      fw.doc_count >= 40
-                        ? 'bg-green-100 text-green-700'
-                        : fw.doc_count >= 15
-                        ? 'bg-yellow-100 text-yellow-700'
-                        : 'bg-red-100 text-red-700'
-                    }`}>
-                      <span aria-hidden="true">{fw.doc_count >= 40 ? '✓' : fw.doc_count >= 15 ? '△' : '✗'}</span>
-                      {fw.doc_count >= 40 ? 'Good' : fw.doc_count >= 15 ? 'Partial' : 'Thin'}
+                      {fw.source_url && (
+                        <a
+                          href={fw.source_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={e => e.stopPropagation()}
+                          className="text-xs text-primary-600 hover:underline truncate block mt-0.5 max-w-xs"
+                        >
+                          {fw.source_url}
+                        </a>
+                      )}
                     </div>
-                    {/* Expand chevron */}
-                    <span className="text-secondary-400 text-sm">
+                    {/* Docs */}
+                    <div className="text-right">
+                      <div className="text-base font-bold text-secondary-900">{fw.doc_count.toLocaleString()}</div>
+                    </div>
+                    {/* Controls */}
+                    <div className="text-right">
+                      <div className="text-base font-bold text-secondary-900">{fw.control_count.toLocaleString()}</div>
+                    </div>
+                    {/* Source type */}
+                    <div className="text-center">
+                      {fw.source_scraper_type ? (
+                        <span className="text-xs font-medium text-secondary-600 bg-white border border-secondary-200 rounded px-2 py-1 whitespace-nowrap">
+                          {SCRAPER_LABELS[fw.source_scraper_type] ?? fw.source_scraper_type}
+                        </span>
+                      ) : <span className="text-secondary-300">—</span>}
+                    </div>
+                    {/* Quality */}
+                    <div className="flex justify-center">
+                      <QualityBadge count={fw.doc_count} />
+                    </div>
+                    {/* Last ingested */}
+                    <div className="text-right text-xs text-secondary-500 whitespace-nowrap">
+                      {formatDate(fw.last_ingested)}
+                    </div>
+                    {/* Chevron */}
+                    <div className="text-secondary-400 text-sm text-right">
                       {loadingDocs === fw.id ? '…' : expandedId === fw.id ? '▲' : '▼'}
-                    </span>
+                    </div>
                   </div>
                 </button>
 
-                {/* Expanded doc list */}
                 {expandedId === fw.id && docTitles[fw.id] && (
                   <div className="border-t border-black/[0.06] px-5 py-4 bg-white/60">
                     <p className="text-xs text-secondary-500 mb-3 font-medium">
