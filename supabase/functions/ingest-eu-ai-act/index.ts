@@ -268,7 +268,6 @@ Deno.serve(async (req: Request) => {
 
         const { error: chunkErr } = await supabase.from('document_chunks').insert({
           document_id: doc.id,
-          framework_id: framework!.id,
           chunk_index: 0,
           content: rawContent,
           embedding,

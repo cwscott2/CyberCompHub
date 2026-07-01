@@ -390,7 +390,7 @@ Deno.serve(async (req: Request) => {
           .from('document_chunks')
           .insert({
             document_id: doc.id,
-            framework_id: frameworkId,
+            chunk_index: 0,
             content: embeddingText,
             embedding,
             metadata: {

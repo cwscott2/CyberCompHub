@@ -1,7 +1,7 @@
 # CyberComplianceHub — Product Requirements Document
 
-**Version:** 1.4.0
-**Last Updated:** June 29, 2026
+**Version:** 1.5.0
+**Last Updated:** June 30, 2026
 
 ---
 
@@ -43,35 +43,50 @@ CyberComplianceHub is an AI-powered compliance knowledge hub for compliance offi
 | NIST RMF | 43 | Moderate |
 | FedRAMP Moderate | seed only | No embeddings yet |
 
-### Financial Compliance (Live)
+### Financial / Privacy (Live)
 | Framework | Documents | Status |
 |---|---|---|
 | SOX | 56 | Good ✓ |
+| GDPR | 27 | Partial |
+| PCI DSS v4.0 | 12 | Partial |
+| HIPAA Security Rule | 18 | Partial |
 
 ### AI Governance (Live)
 | Framework | Documents | Status |
 |---|---|---|
-| EU AI Act | 79 | Good ✓ |
+| EU AI Act | 23 | Partial |
 | NIST AI RMF | ~60 | Moderate |
 | ISO 42001 | 48 | Moderate |
 | NIST AI 100-1 | 17 | Thin → Queued |
 | MITRE ATLAS | 14 | Thin → Queued |
 | DoD AI Ethics | 14 | Thin → Queued |
 | OECD AI Principles | 14 | Thin → Queued |
+| Singapore MAIGF | ingested | Thin |
+| UNESCO AI Ethics | ingested | Thin |
+| UK AISI | ingested | Thin |
+| G7 Hiroshima AI | ingested | Thin |
+| Canada AIDA | ingested | Thin |
+| China GenAI Reg | ingested | Thin |
+| Japan METI AI | ingested | Thin |
+
+### Cybersecurity (Live)
+| Framework | Documents | Status |
+|---|---|---|
+| NIST SP 800-53 Rev 5 | 137 controls + 872 enhancements | Good ✓ |
+| CMMC 2.0 (L2) | 114 | Good ✓ |
+| NIST CSF 2.0 | 221 | Good ✓ |
+| NIST RMF | 43 | Moderate |
+| CIS Controls v8 | 18 | Partial |
+| ISO 27001:2022 | 8 | Sample only |
+| FedRAMP Moderate | seed only | No embeddings yet |
 
 ### Queued (Not Yet Built)
 - SOC 2 (AICPA Trust Service Criteria) — HIGH PRIORITY, top-3 user framework
 - FedRAMP High (~421 controls)
 - FedRAMP Low (~125 controls)
 - FedRAMP Moderate embeddings
-- Singapore Model AI Governance
-- UNESCO AI Ethics Recommendation
-- G7 Hiroshima AI Process
-- UK AI Safety Institute Framework
-- Canada AIDA
-- China GenAI Regulation
-- Japan METI AI Guidelines
-- ISO/IEC 23894
+- ISO 42001 reference coverage (Q3 2026)
+- CMMC v3.0 (Q4 2026)
 
 ---
 
@@ -330,12 +345,33 @@ Enhancing all frameworks to "Good" status (40+ docs, full control coverage).
 
 ---
 
-### 10. User Authentication & Workspaces — P3 (Not Started)
+### 10. User Authentication & Workspaces — Live ✓ (Core), P2 (Billing)
 
-- Supabase Auth for user accounts
-- Saved chat history
-- Saved generated documents per user
-- Team workspaces
+**Implemented (2026-06-30):**
+- Supabase Auth — email/password registration, login, forgot password, reset password
+- `AuthContext` + `useAuth()` hook — session management via `onAuthStateChange`
+- `AuthGuard` component — redirects unauthenticated users to `/login` with return path
+- `AppLayout` — authenticated shell with mobile hamburger nav, active link highlighting, sign out
+- Route structure: public pages at `/`, authenticated app at `/app/*`
+- `profiles` table — display name, upserted on user creation via `handle_new_user()` trigger
+- `organizations` + `org_members` tables — multi-tenant org model (billing stubbed)
+- `usage_events` table — metering infrastructure
+- Social login (Google, Microsoft) — stubs in place, IdP config deferred
+- `AccountPage` — display name, password change, plan display (hardcoded free)
+
+**Pricing tiers (decided 2026-06-30):**
+| Tier | Price | Limits |
+|---|---|---|
+| Free | $0 | 10 chat/day, 3 generations/month, no export |
+| Pro | $39/mo | Unlimited chat + generation, all exports, document history |
+| Team | $149/mo (5 seats) | Pro + shared library, member management |
+| Enterprise | Custom | Team + SSO, audit log, custom frameworks, SLA |
+
+**Backlog:**
+- Stripe billing integration (deferred — stubbed)
+- SSO / bring-your-own-IdP (medium priority, enterprise unlock)
+- Chat history persistence (resets on page reload)
+- Saved documents / personal artifact library (requires billing tier check)
 
 ---
 
@@ -360,6 +396,13 @@ Enhancing all frameworks to "Good" status (40+ docs, full control coverage).
 | `/export-document` | MD/DOCX/PDF export |
 | `/ingest-*` | Per-framework data ingestion |
 
+### Legal Entity
+- DBA: Cybersecurity Compliance Knowledge Hub, LLC
+- Governing law: Delaware
+- Contact: legal@, privacy@, accessibility@, support@cybercompliancehub.com
+- Live legal pages: Terms, Privacy, Disclaimer, Accessibility Statement, Cookie Policy
+- ISO content policy: reference-only (no ingesting commercially licensed PDFs); NIST crosswalks are public domain and safe
+
 ### DB Constraints (critical — never violate)
 - `compliance_frameworks.category` CHECK: only `nist`, `iso`, `fedramp`, `cmmc`, `sox`, `ai-safety`
 - `templates.template_type` CHECK: `policy`, `checklist`, `control-map`, `procedure`, `raci`, `poam`, `gap_assessment`
@@ -369,9 +412,11 @@ Enhancing all frameworks to "Good" status (40+ docs, full control coverage).
 
 ### Security
 - VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are client-safe (RLS enforced)
-- OPENAI_API_KEY and ANTHROPIC_API_KEY are Supabase Edge Function secrets only — never in client bundle
+- OPENAI_API_KEY and ANTHROPIC_API_KEY are Supabase Edge Function secrets only — NEVER add VITE_ prefix (prior incident)
 - `family_metadata_field` validated against ALLOWED_FAMILY_FIELDS allowlist in generate-document function
 - .env gitignored
+- All app routes behind AuthGuard; public marketing routes at root level
+- RLS on all tables; migrations 007 (tightened RLS) and 008 (orgs/profiles/usage) applied
 
 ---
 
