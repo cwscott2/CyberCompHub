@@ -33,6 +33,7 @@ export default function AdminOrgsPage() {
   const [showModal, setShowModal] = useState(false);
   const [newName, setNewName] = useState('');
   const [newSlug, setNewSlug] = useState('');
+  const [slugEdited, setSlugEdited] = useState(false);
   const [newPlan, setNewPlan] = useState('free');
   const [newSeatLimit, setNewSeatLimit] = useState(1);
   const [creating, setCreating] = useState(false);
@@ -89,7 +90,7 @@ export default function AdminOrgsPage() {
     }
 
     setShowModal(false);
-    setNewName(''); setNewSlug(''); setNewPlan('free'); setNewSeatLimit(1);
+    setNewName(''); setNewSlug(''); setSlugEdited(false); setNewPlan('free'); setNewSeatLimit(1);
     await fetchOrgs();
     setCreating(false);
   };
@@ -170,7 +171,7 @@ export default function AdminOrgsPage() {
                   type="text"
                   required
                   value={newName}
-                  onChange={(e) => { setNewName(e.target.value); if (!newSlug) setNewSlug(slugify(e.target.value)); }}
+                  onChange={(e) => { setNewName(e.target.value); if (!slugEdited) setNewSlug(slugify(e.target.value)); }}
                   className="input w-full"
                   placeholder="Acme Corp"
                   autoFocus
@@ -181,7 +182,7 @@ export default function AdminOrgsPage() {
                 <input
                   type="text"
                   value={newSlug}
-                  onChange={(e) => setNewSlug(e.target.value)}
+                  onChange={(e) => { setSlugEdited(true); setNewSlug(e.target.value); }}
                   className="input w-full font-mono text-sm"
                   placeholder="acme-corp"
                 />

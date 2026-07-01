@@ -38,3 +38,7 @@ CREATE POLICY "platform_admins_read_all_orgs" ON organizations
 CREATE POLICY "platform_admins_update_all_orgs" ON organizations
   FOR UPDATE TO authenticated
   USING (is_platform_admin());
+
+CREATE POLICY "platform_admins_insert_orgs" ON organizations
+  FOR INSERT TO authenticated
+  WITH CHECK (is_platform_admin());
