@@ -23,14 +23,6 @@ async function generateEmbedding(text: string): Promise<number[]> {
   return data.data[0].embedding;
 }
 
-async function insertChunk(documentId: string, content: string, embedding: number[]) {
-  await supabase.from('document_chunks').insert({
-    document_id: documentId,
-    chunk_index: 0,
-    content,
-    embedding,
-  });
-}
 
 const EU_AI_ACT_DATA = [
   // Risk Tiers
@@ -238,46 +230,69 @@ Deno.serve(async (req: Request) => {
       source = data;
     }
 
-    const { data: job } = await supabase.from('ingest_jobs').insert({
-      source_id: source!.id,
-      status: 'in_progress',
-      started_at: new Date().toISOString(),
-    }).select('id').single();
+    // ── 3. Delete existing docs (idempotent) ──────────────────────────────
+    const { error: deleteErr } = await supabase
+      .from('documents')
+      .delete()
+      .eq('framework_id', framework!.id)
+      .eq("metadata->>document_level", 'eu-ai-act-article');
 
-    let documentsIngested = 0;
+    if (deleteErr) throw new Error(`Delete existing docs failed: ${deleteErr.message}`);
+
+    const results = { inserted: 0, errors: [] as string[] };
 
     for (const item of EU_AI_ACT_DATA) {
-      const rawContent = `# ${item.id}\n\n## Category\n${item.category}\n\n## Requirement\n${item.description}\n\n## Guidance\n${item.guidance}`;
+      try {
+        const rawContent = `# ${item.id}\n\n## Category\n${item.category}\n\n## Requirement\n${item.description}\n\n## Guidance\n${item.guidance}`;
 
-      const embedding = await generateEmbedding(rawContent);
+        const embedding = await generateEmbedding(rawContent);
 
-      const { data: doc } = await supabase.from('documents').insert({
-        source_id: source!.id,
-        framework_id: framework!.id,
-        title: `${item.id} — ${item.title}`,
-        document_type: 'control',
-        raw_content: rawContent,
-        metadata: { article_id: item.id, category: item.category },
-        url: 'https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=OJ:L_202401689',
-      }).select('id').single();
+        const { data: doc, error: docErr } = await supabase.from('documents').insert({
+          source_id: source!.id,
+          framework_id: framework!.id,
+          title: `${item.id} — ${item.title}`,
+          document_type: 'control',
+          raw_content: rawContent,
+          metadata: {
+            document_level: 'eu-ai-act-article',
+            article_id: item.id,
+            category: item.category,
+          },
+          is_indexed: true,
+        }).select('id').single();
 
-      if (doc) {
-        await insertChunk(doc.id, rawContent, embedding);
-        documentsIngested++;
+        if (docErr || !doc) {
+          results.errors.push(`Doc insert failed for "${item.title}": ${docErr?.message}`);
+          continue;
+        }
+
+        const { error: chunkErr } = await supabase.from('document_chunks').insert({
+          document_id: doc.id,
+          framework_id: framework!.id,
+          chunk_index: 0,
+          content: rawContent,
+          embedding,
+          metadata: { document_level: 'eu-ai-act-article', article_id: item.id, category: item.category },
+        });
+
+        if (chunkErr) {
+          results.errors.push(`Chunk insert failed for "${item.title}": ${chunkErr.message}`);
+          continue;
+        }
+
+        results.inserted++;
+      } catch (itemErr) {
+        const msg = itemErr instanceof Error ? itemErr.message : String(itemErr);
+        results.errors.push(`Error processing "${item.title}": ${msg}`);
       }
     }
 
-    await supabase.from('ingest_jobs').update({
-      status: 'completed',
-      documents_ingested: documentsIngested,
-      completed_at: new Date().toISOString(),
-    }).eq('id', job!.id);
-
-    return new Response(JSON.stringify({ success: true, documents: documentsIngested }), {
+    return new Response(JSON.stringify(results), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {
-    return new Response(JSON.stringify({ error: String(error) }), {
+    const msg = error instanceof Error ? error.message : String(error);
+    return new Response(JSON.stringify({ inserted: 0, errors: [msg] }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
