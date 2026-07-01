@@ -19,8 +19,100 @@ const PLAN_COLORS: Record<string, string> = {
   enterprise: 'bg-amber-100 text-amber-700',
 };
 
+const PLANS = ['free', 'beta', 'pro', 'team', 'enterprise'];
+
 function slugify(name: string) {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+}
+
+interface OrgFormProps {
+  title: string;
+  initialName?: string;
+  initialSlug?: string;
+  initialPlan?: string;
+  initialSeatLimit?: number;
+  submitLabel: string;
+  onSubmit: (values: { name: string; slug: string; plan: string; seat_limit: number }) => Promise<string | null>;
+  onClose: () => void;
+}
+
+function OrgFormModal({ title, initialName = '', initialSlug = '', initialPlan = 'free', initialSeatLimit = 1, submitLabel, onSubmit, onClose }: OrgFormProps) {
+  const [name, setName] = useState(initialName);
+  const [slug, setSlug] = useState(initialSlug);
+  const [slugEdited, setSlugEdited] = useState(!!initialSlug);
+  const [plan, setPlan] = useState(initialPlan);
+  const [seatLimit, setSeatLimit] = useState(initialSeatLimit);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    setError(null);
+    const err = await onSubmit({ name: name.trim(), slug: slug.trim() || slugify(name.trim()), plan, seat_limit: seatLimit });
+    if (err) { setError(err); setSaving(false); }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" role="dialog" aria-modal="true">
+      <div className="bg-white rounded-xl shadow-xl max-w-md w-full mx-4 p-6">
+        <h3 className="text-lg font-semibold text-secondary-900 mb-4">{title}</h3>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-secondary-700 mb-1">Name <span className="text-red-500">*</span></label>
+            <input
+              type="text"
+              required
+              value={name}
+              onChange={(e) => { setName(e.target.value); if (!slugEdited) setSlug(slugify(e.target.value)); }}
+              className="input w-full"
+              placeholder="Acme Corp"
+              autoFocus
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-secondary-700 mb-1">Slug <span className="text-secondary-400 font-normal">(auto-generated)</span></label>
+            <input
+              type="text"
+              value={slug}
+              onChange={(e) => { setSlugEdited(true); setSlug(e.target.value); }}
+              className="input w-full font-mono text-sm"
+              placeholder="acme-corp"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-secondary-700 mb-1">Plan</label>
+              <select value={plan} onChange={(e) => setPlan(e.target.value)} className="input w-full">
+                {PLANS.map((p) => (
+                  <option key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-secondary-700 mb-1">Seat Limit</label>
+              <input
+                type="number"
+                min={1}
+                value={seatLimit}
+                onChange={(e) => setSeatLimit(Number(e.target.value))}
+                className="input w-full"
+              />
+            </div>
+          </div>
+          {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
+          <div className="flex gap-3 pt-2">
+            <button type="submit" disabled={saving} className="flex-1 btn-primary disabled:opacity-50">
+              {saving ? 'Saving…' : submitLabel}
+            </button>
+            <button type="button" onClick={onClose} className="flex-1 btn-secondary">
+              Cancel
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
 }
 
 export default function AdminOrgsPage() {
@@ -28,16 +120,8 @@ export default function AdminOrgsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [updatingPlan, setUpdatingPlan] = useState<string | null>(null);
-
-  // New org modal state
-  const [showModal, setShowModal] = useState(false);
-  const [newName, setNewName] = useState('');
-  const [newSlug, setNewSlug] = useState('');
-  const [slugEdited, setSlugEdited] = useState(false);
-  const [newPlan, setNewPlan] = useState('free');
-  const [newSeatLimit, setNewSeatLimit] = useState(1);
-  const [creating, setCreating] = useState(false);
-  const [createError, setCreateError] = useState<string | null>(null);
+  const [showCreate, setShowCreate] = useState(false);
+  const [editOrg, setEditOrg] = useState<AdminOrg | null>(null);
 
   useEffect(() => { fetchOrgs(); }, []);
 
@@ -71,28 +155,21 @@ export default function AdminOrgsPage() {
     setUpdatingPlan(null);
   };
 
-  const handleCreateOrg = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setCreating(true);
-    setCreateError(null);
-
-    const { error } = await supabase.from('organizations').insert({
-      name: newName.trim(),
-      slug: newSlug.trim() || slugify(newName.trim()),
-      plan: newPlan,
-      seat_limit: newSeatLimit,
-    });
-
-    if (error) {
-      setCreateError(error.message);
-      setCreating(false);
-      return;
-    }
-
-    setShowModal(false);
-    setNewName(''); setNewSlug(''); setSlugEdited(false); setNewPlan('free'); setNewSeatLimit(1);
+  const handleCreate = async (values: { name: string; slug: string; plan: string; seat_limit: number }) => {
+    const { error } = await supabase.from('organizations').insert(values);
+    if (error) return error.message;
+    setShowCreate(false);
     await fetchOrgs();
-    setCreating(false);
+    return null;
+  };
+
+  const handleEdit = async (values: { name: string; slug: string; plan: string; seat_limit: number }) => {
+    if (!editOrg) return null;
+    const { error } = await supabase.from('organizations').update(values).eq('id', editOrg.id);
+    if (error) return error.message;
+    setEditOrg(null);
+    await fetchOrgs();
+    return null;
   };
 
   return (
@@ -102,7 +179,7 @@ export default function AdminOrgsPage() {
           <h2 className="text-2xl font-bold text-secondary-900">Organizations</h2>
           <p className="text-sm text-secondary-500 mt-1">{orgs.length} total organizations</p>
         </div>
-        <button onClick={() => setShowModal(true)} className="btn-primary text-sm">
+        <button onClick={() => setShowCreate(true)} className="btn-primary text-sm">
           + New Organization
         </button>
       </div>
@@ -125,6 +202,7 @@ export default function AdminOrgsPage() {
                 <th className="text-left px-4 py-3 font-medium text-secondary-600">Members</th>
                 <th className="text-left px-4 py-3 font-medium text-secondary-600">Seat Limit</th>
                 <th className="text-left px-4 py-3 font-medium text-secondary-600">Created</th>
+                <th className="px-4 py-3" />
               </tr>
             </thead>
             <tbody className="divide-y divide-secondary-100">
@@ -142,7 +220,7 @@ export default function AdminOrgsPage() {
                       className={`text-xs font-medium px-2 py-1 rounded-full border-0 cursor-pointer ${PLAN_COLORS[org.plan] ?? 'bg-secondary-100 text-secondary-700'}`}
                       aria-label={`Plan for ${org.name}`}
                     >
-                      {['free', 'beta', 'pro', 'team', 'enterprise'].map((p) => (
+                      {PLANS.map((p) => (
                         <option key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</option>
                       ))}
                     </select>
@@ -152,6 +230,14 @@ export default function AdminOrgsPage() {
                   <td className="px-4 py-3 text-secondary-500">
                     {new Date(org.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
                   </td>
+                  <td className="px-4 py-3 text-right">
+                    <button
+                      onClick={() => setEditOrg(org)}
+                      className="text-xs text-secondary-400 hover:text-primary-600 transition-colors"
+                    >
+                      Edit
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -159,66 +245,26 @@ export default function AdminOrgsPage() {
         </div>
       )}
 
-      {/* New Organization Modal */}
-      {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" role="dialog" aria-modal="true" aria-labelledby="new-org-title">
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full mx-4 p-6">
-            <h3 id="new-org-title" className="text-lg font-semibold text-secondary-900 mb-4">New Organization</h3>
-            <form onSubmit={handleCreateOrg} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-secondary-700 mb-1">Name <span className="text-red-500">*</span></label>
-                <input
-                  type="text"
-                  required
-                  value={newName}
-                  onChange={(e) => { setNewName(e.target.value); if (!slugEdited) setNewSlug(slugify(e.target.value)); }}
-                  className="input w-full"
-                  placeholder="Acme Corp"
-                  autoFocus
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-secondary-700 mb-1">Slug <span className="text-secondary-400 font-normal">(auto-generated)</span></label>
-                <input
-                  type="text"
-                  value={newSlug}
-                  onChange={(e) => { setSlugEdited(true); setNewSlug(e.target.value); }}
-                  className="input w-full font-mono text-sm"
-                  placeholder="acme-corp"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm font-medium text-secondary-700 mb-1">Plan</label>
-                  <select value={newPlan} onChange={(e) => setNewPlan(e.target.value)} className="input w-full">
-                    {['free', 'beta', 'pro', 'team', 'enterprise'].map((p) => (
-                      <option key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-secondary-700 mb-1">Seat Limit</label>
-                  <input
-                    type="number"
-                    min={1}
-                    value={newSeatLimit}
-                    onChange={(e) => setNewSeatLimit(Number(e.target.value))}
-                    className="input w-full"
-                  />
-                </div>
-              </div>
-              {createError && <p role="alert" className="text-sm text-red-600">{createError}</p>}
-              <div className="flex gap-3 pt-2">
-                <button type="submit" disabled={creating} className="flex-1 btn-primary disabled:opacity-50">
-                  {creating ? 'Creating…' : 'Create Organization'}
-                </button>
-                <button type="button" onClick={() => { setShowModal(false); setCreateError(null); }} className="flex-1 btn-secondary">
-                  Cancel
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+      {showCreate && (
+        <OrgFormModal
+          title="New Organization"
+          submitLabel="Create Organization"
+          onSubmit={handleCreate}
+          onClose={() => setShowCreate(false)}
+        />
+      )}
+
+      {editOrg && (
+        <OrgFormModal
+          title={`Edit — ${editOrg.name}`}
+          initialName={editOrg.name}
+          initialSlug={editOrg.slug}
+          initialPlan={editOrg.plan}
+          initialSeatLimit={editOrg.seat_limit}
+          submitLabel="Save Changes"
+          onSubmit={handleEdit}
+          onClose={() => setEditOrg(null)}
+        />
       )}
     </div>
   );
