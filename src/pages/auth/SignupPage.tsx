@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../../services/supabase';
+import SocialLoginButtons from '../../components/SocialLoginButtons';
 
 export default function SignupPage() {
   const [email, setEmail] = useState('');
@@ -162,6 +163,8 @@ export default function SignupPage() {
             and{' '}
             <Link to="/privacy" className="text-primary-600 hover:underline">Privacy Policy</Link>.
           </p>
+
+          <SocialLoginButtons mode="signup" />
         </div>
       </div>
     </div>
