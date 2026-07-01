@@ -71,12 +71,23 @@ export default function Dashboard() {
         const config = groupConfig[group];
         return (
           <div key={group} className="mb-10">
-            <div className={`flex items-center gap-2 mb-4 px-3 py-2 rounded-lg border ${config.accent} w-fit`}>
-              {/* M3: decorative emoji hidden from screen readers */}
-              <span className="text-lg" aria-hidden="true">{config.icon}</span>
-              <h3 className="text-sm font-semibold text-secondary-700 uppercase tracking-wide">
-                {config.label}
-              </h3>
+            <div className="flex items-center justify-between mb-4">
+              <Link
+                to={`/app/frameworks/${group === 'security' ? 'cybersecurity' : group === 'ai' ? 'ai-governance' : 'financial'}`}
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg border ${config.accent} hover:opacity-80 transition-opacity`}
+              >
+                {/* M3: decorative emoji hidden from screen readers */}
+                <span className="text-lg" aria-hidden="true">{config.icon}</span>
+                <h3 className="text-sm font-semibold text-secondary-700 uppercase tracking-wide">
+                  {config.label}
+                </h3>
+              </Link>
+              <Link
+                to={`/app/frameworks/${group === 'security' ? 'cybersecurity' : group === 'ai' ? 'ai-governance' : 'financial'}`}
+                className="text-xs text-primary-600 hover:underline"
+              >
+                View all →
+              </Link>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {groupFrameworks.map((framework) => (

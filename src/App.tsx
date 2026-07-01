@@ -5,6 +5,9 @@ import AppLayout from './layouts/AppLayout';
 import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/auth/LoginPage';
 import SignupPage from './pages/auth/SignupPage';
+import ForgotPasswordPage from './pages/auth/ForgotPasswordPage';
+import PricingPage from './pages/PricingPage';
+import ResetPasswordPage from './pages/auth/ResetPasswordPage';
 import DisclaimerPage from './pages/legal/DisclaimerPage';
 import PrivacyPage from './pages/legal/PrivacyPage';
 import TermsPage from './pages/legal/TermsPage';
@@ -19,8 +22,11 @@ function App() {
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
 
         {/* Legal */}
+        <Route path="/pricing" element={<PricingPage />} />
         <Route path="/disclaimer" element={<DisclaimerPage />} />
         <Route path="/privacy" element={<PrivacyPage />} />
         <Route path="/terms" element={<TermsPage />} />
