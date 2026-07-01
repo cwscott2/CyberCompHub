@@ -136,15 +136,19 @@ export default function LandingPage() {
           <div className="max-w-4xl mx-auto text-center">
             <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-primary-50 border border-primary-200 rounded-full text-xs text-primary-700 font-medium mb-6">
               <span className="w-1.5 h-1.5 bg-primary-500 rounded-full" aria-hidden="true" />
-              15+ frameworks · AI-powered · No implementation required
+              15+ frameworks · AI-powered · Built on primary sources
             </div>
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-secondary-900 leading-tight mb-6">
-              Compliance research that{' '}
-              <span className="text-primary-600">actually keeps up</span>{' '}
-              with you
+              The Compliance Research Platform Built for{' '}
+              <span className="text-primary-600">Cybersecurity and AI Governance</span>
             </h1>
-            <p className="text-xl text-secondary-600 max-w-2xl mx-auto mb-8 leading-relaxed">
-              Search, query, and generate documents across NIST, CMMC, FedRAMP, ISO, EU AI Act, and more — all from one AI-powered knowledge base built on primary source material.
+            <p className="text-xl text-secondary-600 max-w-2xl mx-auto mb-4 leading-relaxed">
+              Ask expert questions. Search primary sources. Generate ready-to-use governance artifacts — policies, procedures, gap assessments, POA&Ms, and checklists — grounded in NIST, CMMC, FedRAMP, ISO, EU AI Act, and 10+ more frameworks.
+            </p>
+            {/* Secondary tagline */}
+            <p className="text-base font-semibold text-secondary-800 mb-8 tracking-wide">
+              Cybersecurity &amp; AI Knowledge In.{' '}
+              <span className="text-primary-600">Compliance Artifacts Out.</span>
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <Link to="/signup" className="btn-primary text-base px-8 py-3 w-full sm:w-auto text-center">
@@ -155,7 +159,7 @@ export default function LandingPage() {
               </Link>
             </div>
             <p className="mt-4 text-sm text-secondary-500">
-              Free tier includes 10 chat messages/day and 3 document generations/month.
+              Free tier includes 10 AI chat messages/day and 3 document generations/month.
             </p>
           </div>
         </section>
