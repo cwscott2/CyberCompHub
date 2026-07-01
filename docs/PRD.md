@@ -1,7 +1,7 @@
 # CyberComplianceHub — Product Requirements Document
 
-**Version:** 1.6.0
-**Last Updated:** July 1, 2026
+**Version:** 1.6.1
+**Last Updated:** July 1, 2026 (end of session)
 
 ---
 
@@ -189,17 +189,20 @@ Multi-step wizard: Framework → Template → [Family Picker] → Scope → Gene
 
 **Admin Layer (Platform Admin only):**
 - Admin nav (gray/navy color scheme) accessible via "Admin" link in top nav
-- Users page: search, role badges, joined date
-- Organizations page: plan assignment dropdown (saves to DB), seat limit, member count, **New Organization** modal (name, slug, plan, seat limit)
+- Users page: org/role columns, search by name/ID/org; Edit modal — display name, platform admin toggle (self-guard), org assignment (org + role: owner/admin/member)
+- Organizations page: New Org modal + Edit modal (name, slug, plan, seat limit); plan dropdown saves inline
 - Settings page: placeholder cards for Plan Limits, Email/SMTP, Session Policy, Analytics
+- All admin RLS uses `is_platform_admin()` SECURITY DEFINER function (prevents 42P17 recursion)
+
+**Org Assignment Model:** Option B — users start org-less on self-enroll. Free-tier features work without an org. Org membership gates Team tier features. Platform admin assigns orgs manually. Onboarding flow for Team tier is a future backlog item.
 
 **Backlog:**
 - Custom SMTP — once domain finalized; needed for invite emails and branded transactional email — HIGH
 - Email invites (org-context aware) — depends on Custom SMTP
-- Org Admin UI — org owners can invite/remove members, view org usage — LOW (post-beta)
+- Org Admin UI — org owners can invite/remove members, view org usage — reuses Admin Users UI filtered by org_id — LOW (post-beta)
 - GDPR Article 15/17/20 — Download My Data, Right to Erasure (soft-delete, 30-day window) — MEDIUM (before EU marketing)
 - Stripe billing — on hold until beta testers engaged
-- Session timeout: reduce Supabase refresh token from default to 24 hours in Auth settings
+- Supabase Pro upgrade — unlocks session time-box, JWT expiry settings, and higher email rate limits
 
 **Pricing Tiers:**
 | Tier | Price | Limits |
