@@ -29,11 +29,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isPlatformAdmin, setIsPlatformAdmin] = useState(false);
 
   const fetchDisplayName = async (userId: string) => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('profiles')
       .select('display_name, is_platform_admin')
       .eq('id', userId)
       .maybeSingle();
+    if (error) console.error('[AuthContext] fetchDisplayName error:', error);
     setDisplayName(data?.display_name ?? null);
     setIsPlatformAdmin(data?.is_platform_admin ?? false);
   };
