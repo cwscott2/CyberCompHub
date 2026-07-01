@@ -21,7 +21,7 @@ export default function TermsPage() {
           <section>
             <h2 className="text-xl font-semibold text-secondary-900 mb-3">1. Agreement</h2>
             <p>
-              By accessing or using CyberComplianceHub ("the Service"), you agree to be bound by these Terms of Service. If you do not agree, do not use the Service. These terms apply to all users including free and paid subscribers.
+              By accessing or using CyberComplianceHub, a service operated by Cybersecurity Compliance Knowledge Hub, LLC ("we," "our," "us," or "the Company"), you agree to be bound by these Terms of Service. If you do not agree, do not use the Service. These terms apply to all users including free and paid subscribers.
             </p>
           </section>
 
@@ -93,7 +93,7 @@ export default function TermsPage() {
           <section>
             <h2 className="text-xl font-semibold text-secondary-900 mb-3">10. Governing Law</h2>
             <p>
-              These Terms are governed by the laws of the State of [State], United States, without regard to conflict of law provisions.
+              These Terms are governed by the laws of the State of Delaware, United States, without regard to conflict of law provisions. For users in the European Union, nothing in these Terms limits your rights under applicable EU law.
             </p>
           </section>
 

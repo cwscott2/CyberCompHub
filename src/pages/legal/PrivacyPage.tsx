@@ -21,7 +21,7 @@ export default function PrivacyPage() {
           <section>
             <h2 className="text-xl font-semibold text-secondary-900 mb-3">Who we are</h2>
             <p>
-              CyberComplianceHub ("we," "our," or "us") operates the CyberComplianceHub platform available at cybercompliancehub.com. This policy explains what personal data we collect, how we use it, and your rights.
+              Cybersecurity Compliance Knowledge Hub, LLC ("we," "our," or "us") operates the CyberComplianceHub platform available at cybercompliancehub.com. This policy explains what personal data we collect, how we use it, and your rights. This policy applies to users worldwide, including those in the United States, European Economic Area (EEA), United Kingdom, and other jurisdictions.
             </p>
           </section>
 
@@ -80,17 +80,28 @@ export default function PrivacyPage() {
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold text-secondary-900 mb-3">GDPR — Users in the European Economic Area</h2>
+            <h2 className="text-xl font-semibold text-secondary-900 mb-3">International Users and GDPR</h2>
             <p>
-              If you are located in the EEA, UK, or Switzerland, you have additional rights under the General Data Protection Regulation (GDPR) or equivalent legislation. Our legal basis for processing your data is:
+              CyberComplianceHub is available globally. Regardless of where you are located, we apply privacy protections consistent with GDPR principles as our baseline standard. If you are located in the EEA, UK, or Switzerland, you have enforceable rights under the General Data Protection Regulation or equivalent legislation.
             </p>
+            <p className="mt-3">Our legal bases for processing your data are:</p>
             <ul className="list-disc pl-5 space-y-1 mt-2">
               <li><strong>Contract performance:</strong> To provide the service you signed up for.</li>
-              <li><strong>Legitimate interests:</strong> To improve the platform and prevent fraud.</li>
-              <li><strong>Consent:</strong> For marketing communications (you may withdraw consent at any time).</li>
+              <li><strong>Legitimate interests:</strong> To improve the platform, prevent fraud, and ensure security.</li>
+              <li><strong>Consent:</strong> For marketing communications (you may withdraw at any time).</li>
+              <li><strong>Legal obligation:</strong> Where processing is required by applicable law.</li>
             </ul>
             <p className="mt-3">
-              You have the right to lodge a complaint with your local supervisory authority. For cross-border data transfers, we rely on standard contractual clauses where applicable.
+              EEA/UK users have the right to lodge a complaint with their local supervisory authority (e.g., the ICO in the UK, or your national DPA in the EU). For cross-border data transfers from the EEA to the United States, we rely on Standard Contractual Clauses (SCCs) as approved by the European Commission.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-xl font-semibold text-secondary-900 mb-3">Other Jurisdictions</h2>
+            <p>
+              If you are located in Canada, Australia, Brazil, Japan, or another jurisdiction with data protection legislation, you have rights similar to those described above. We honor data access, correction, and deletion requests regardless of jurisdiction. Contact us at{' '}
+              <a href="mailto:privacy@cybercompliancehub.com" className="text-primary-600 hover:underline">privacy@cybercompliancehub.com</a>{' '}
+              to exercise your rights.
             </p>
           </section>
 

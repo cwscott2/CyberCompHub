@@ -21,7 +21,7 @@ export default function DisclaimerPage() {
           <section>
             <h2 className="text-xl font-semibold text-secondary-900 mb-3">Not Legal or Professional Compliance Advice</h2>
             <p>
-              CyberComplianceHub is an information and research tool. Nothing on this platform — including AI-generated responses, document outputs, framework summaries, or any other content — constitutes legal advice, professional compliance advice, or a guarantee of regulatory compliance.
+              CyberComplianceHub, operated by Cybersecurity Compliance Knowledge Hub, LLC, is an information and research tool. Nothing on this platform — including AI-generated responses, document outputs, framework summaries, or any other content — constitutes legal advice, professional compliance advice, or a guarantee of regulatory compliance.
             </p>
             <p className="mt-3">
               Compliance with cybersecurity, AI governance, financial, privacy, or other regulatory frameworks is a complex undertaking that depends on facts specific to your organization, jurisdiction, and circumstances. Always consult a qualified attorney, certified compliance professional, or subject-matter expert before making compliance decisions.
