@@ -57,10 +57,11 @@ export default function KnowledgeBasePage() {
 
       const statsArr: FrameworkStats[] = await Promise.all(
         frameworks.map(async (fw) => {
-          const [{ count: docCount }, { count: controlCount }, { data: sources }] = await Promise.all([
+          const [{ count: docCount }, { count: controlCount }, { data: sources }, { data: latestDoc }] = await Promise.all([
             supabase.from('documents').select('*', { count: 'exact', head: true }).eq('framework_id', fw.id),
             supabase.from('documents').select('*', { count: 'exact', head: true }).eq('framework_id', fw.id).eq('document_type', 'control'),
-            supabase.from('sources').select('url, scraper_type, created_at').eq('framework_id', fw.id).order('created_at', { ascending: false }).limit(1),
+            supabase.from('sources').select('url, scraper_type').eq('framework_id', fw.id).order('created_at', { ascending: false }).limit(1),
+            supabase.from('documents').select('created_at').eq('framework_id', fw.id).order('created_at', { ascending: false }).limit(1),
           ]);
 
           const source = sources?.[0];
@@ -70,7 +71,7 @@ export default function KnowledgeBasePage() {
             control_count: controlCount ?? 0,
             source_url: source?.url ?? null,
             source_scraper_type: source?.scraper_type ?? null,
-            last_ingested: source?.created_at ?? null,
+            last_ingested: latestDoc?.[0]?.created_at ?? null,
           };
         })
       );

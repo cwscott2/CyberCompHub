@@ -349,6 +349,14 @@ Deno.serve(async (req: Request) => {
   const authError = validateAuth(req);
   if (authError) return authError;
 
+  // Extract user ID from the bearer token
+  const authHeader = req.headers.get('Authorization')!;
+  const userClient = createClient(supabaseUrl, supabaseServiceKey, {
+    global: { headers: { Authorization: authHeader } },
+  });
+  const { data: { user } } = await userClient.auth.getUser();
+  const userId = user?.id ?? null;
+
   try {
     const { framework_id, template_id, custom_scope, selected_controls, selected_family, family_metadata_field }: GenerateRequest = await req.json();
 
@@ -543,6 +551,7 @@ Deno.serve(async (req: Request) => {
         framework_id,
         template_id,
         content_markdown,
+        user_id: userId,
         metadata: {
           sanitized_scope,
           selected_controls,
