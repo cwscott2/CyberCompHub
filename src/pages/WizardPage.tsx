@@ -29,6 +29,12 @@ const FAMILY_FIELD_MAP: Record<string, string> = {
   'DoD AI Ethics': 'category',
   'MITRE ATLAS': 'tactic',
   'NIST AI 100-1': 'category',
+  // New framework scope fields
+  'PCI DSS': 'requirement_number',
+  'HIPAA': 'safeguard_type',
+  'GDPR': 'chapter_number',
+  'CIS Controls': 'category',
+  'EU AI Act': 'category',
 };
 
 const FAMILY_SCOPED_TYPES = ['procedure', 'gap_assessment', 'policy', 'checklist', 'poam'];
