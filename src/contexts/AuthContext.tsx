@@ -35,14 +35,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       .eq('id', userId)
       .maybeSingle();
     if (error) console.error('[AuthContext] fetchDisplayName error:', error);
-    setDisplayName(data?.display_name ?? null);
+
+    if (data?.display_name) {
+      setDisplayName(data.display_name);
+    } else {
+      // Fall back to OAuth provider name (Google full_name, etc.)
+      const { data: { user } } = await supabase.auth.getUser();
+      const oauthName = user?.user_metadata?.full_name ?? user?.user_metadata?.name ?? null;
+      setDisplayName(oauthName);
+    }
     setIsPlatformAdmin(data?.is_platform_admin ?? false);
   };
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       setSession(session);
-      if (session?.user) fetchDisplayName(session.user.id);
+      if (session?.user) await fetchDisplayName(session.user.id);
       setLoading(false);
     });
 
