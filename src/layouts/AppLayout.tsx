@@ -8,6 +8,11 @@ import WizardPage from '../pages/WizardPage';
 import KnowledgeBasePage from '../pages/KnowledgeBasePage';
 import AccountPage from '../pages/AccountPage';
 import FrameworkCategoryPage from '../pages/app/FrameworkCategoryPage';
+import AdminGuard from '../components/AdminGuard';
+import AdminNav from '../components/AdminNav';
+import AdminUsersPage from '../pages/admin/AdminUsersPage';
+import AdminOrgsPage from '../pages/admin/AdminOrgsPage';
+import AdminSettingsPage from '../pages/admin/AdminSettingsPage';
 import Footer from '../components/Footer';
 
 const NAV_LINKS = [
@@ -20,7 +25,7 @@ const NAV_LINKS = [
 
 export default function AppLayout() {
   const location = useLocation();
-  const { user, displayName, signOut } = useAuth();
+  const { user, displayName, isPlatformAdmin, signOut } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const isActive = (to: string) => location.pathname === to;
@@ -62,6 +67,20 @@ export default function AppLayout() {
                 </Link>
               ))}
             </nav>
+
+            {/* Admin link — platform admins only */}
+            {isPlatformAdmin && (
+              <Link
+                to="/app/admin/users"
+                className={`hidden md:block px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                  location.pathname.startsWith('/app/admin')
+                    ? 'bg-red-50 text-red-600'
+                    : 'text-red-500 hover:text-red-700 hover:bg-red-50'
+                }`}
+              >
+                Admin
+              </Link>
+            )}
 
             {/* Desktop user menu */}
             <div className="hidden md:flex items-center gap-3">
@@ -122,6 +141,15 @@ export default function AppLayout() {
                 </Link>
               ))}
               <div className="border-t border-secondary-100 pt-3 mt-3">
+                {isPlatformAdmin && (
+                  <Link
+                    to="/app/admin/users"
+                    onClick={() => setMobileOpen(false)}
+                    className="block px-3 py-2 rounded-md text-sm text-red-600 font-medium hover:bg-red-50"
+                  >
+                    Admin
+                  </Link>
+                )}
                 <Link
                   to="/app/account"
                   onClick={() => setMobileOpen(false)}
@@ -141,6 +169,8 @@ export default function AppLayout() {
         )}
       </header>
 
+      {isPlatformAdmin && location.pathname.startsWith('/app/admin') && <AdminNav />}
+
       <main id="main-content" className="flex-1">
         <Routes>
           <Route path="dashboard" element={<Dashboard />} />
@@ -150,6 +180,10 @@ export default function AppLayout() {
           <Route path="knowledge-base" element={<KnowledgeBasePage />} />
           <Route path="account" element={<AccountPage />} />
           <Route path="frameworks/:category" element={<FrameworkCategoryPage />} />
+          <Route path="admin/users" element={<AdminGuard><AdminUsersPage /></AdminGuard>} />
+          <Route path="admin/organizations" element={<AdminGuard><AdminOrgsPage /></AdminGuard>} />
+          <Route path="admin/settings" element={<AdminGuard><AdminSettingsPage /></AdminGuard>} />
+          <Route path="admin" element={<Navigate to="admin/users" replace />} />
           <Route path="*" element={<Navigate to="dashboard" replace />} />
         </Routes>
       </main>
