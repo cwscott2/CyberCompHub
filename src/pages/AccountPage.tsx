@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../services/supabase';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 interface GeneratedDoc {
   id: string;
@@ -386,45 +388,53 @@ export default function AccountPage() {
                 ✕
               </button>
             </div>
-            <div className="flex-1 overflow-auto p-4">
+            <div className="prose prose-sm max-w-none text-secondary-800 overflow-y-auto flex-1 py-2 px-4">
               {modalLoading ? (
-                <p className="text-sm text-secondary-400">Loading content…</p>
+                <p className="text-secondary-400 text-sm">Loading content…</p>
               ) : modalContent ? (
-                <div className="prose prose-sm max-w-none">
-                  <p className="text-xs text-secondary-500 whitespace-pre-wrap">{modalContent.slice(0, 500)}…</p>
-                </div>
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{modalContent}</ReactMarkdown>
               ) : (
-                <p className="text-sm text-secondary-500">Could not load document content.</p>
+                <p className="text-secondary-400 text-sm">No content available.</p>
               )}
             </div>
-            <div className="flex items-center justify-end gap-2 p-4 border-t border-secondary-200">
+            <div className="flex items-center justify-between gap-2 p-4 border-t border-secondary-200">
               <button
-                onClick={() => handleExportFromModal('markdown')}
-                disabled={exportingDocId === selectedDoc.id}
-                className="text-xs text-secondary-600 hover:text-secondary-900 disabled:opacity-50"
+                onClick={() => {
+                  if (confirm('Remove this document from your history?')) handleSoftDelete(selectedDoc!.id);
+                }}
+                className="text-xs text-red-500 hover:underline"
               >
-                {exportingDocId === selectedDoc.id ? 'Exporting…' : 'MD'}
+                Remove from history
               </button>
-              <button
-                onClick={() => handleExportFromModal('docx')}
-                disabled={exportingDocId === selectedDoc.id}
-                className="text-xs text-secondary-600 hover:text-secondary-900 disabled:opacity-50"
-              >
-                {exportingDocId === selectedDoc.id ? 'Exporting…' : 'DOCX'}
-              </button>
-              <button
-                onClick={() => handleExportFromModal('xlsx')}
-                disabled={exportingDocId === selectedDoc.id}
-                className="text-xs text-secondary-600 hover:text-secondary-900 disabled:opacity-50"
-              >
-                {exportingDocId === selectedDoc.id ? 'Exporting…' : 'XLSX'}
-              </button>
-              <button
-                onClick={() => { setSelectedDoc(null); setModalContent(null); }}
-                className="px-3 py-1 rounded-lg bg-secondary-200 text-secondary-700 text-xs hover:bg-secondary-300 transition-colors"
-              >
-                Close
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handleExportFromModal('markdown')}
+                  disabled={exportingDocId === selectedDoc.id}
+                  className="text-xs text-secondary-600 hover:text-secondary-900 disabled:opacity-50"
+                >
+                  {exportingDocId === selectedDoc.id ? 'Exporting…' : 'MD'}
+                </button>
+                <button
+                  onClick={() => handleExportFromModal('docx')}
+                  disabled={exportingDocId === selectedDoc.id}
+                  className="text-xs text-secondary-600 hover:text-secondary-900 disabled:opacity-50"
+                >
+                  {exportingDocId === selectedDoc.id ? 'Exporting…' : 'DOCX'}
+                </button>
+                <button
+                  onClick={() => handleExportFromModal('xlsx')}
+                  disabled={exportingDocId === selectedDoc.id}
+                  className="text-xs text-secondary-600 hover:text-secondary-900 disabled:opacity-50"
+                >
+                  {exportingDocId === selectedDoc.id ? 'Exporting…' : 'XLSX'}
+                </button>
+                <button
+                  onClick={() => { setSelectedDoc(null); setModalContent(null); }}
+                  className="px-3 py-1 rounded-lg bg-secondary-200 text-secondary-700 text-xs hover:bg-secondary-300 transition-colors"
+                >
+                  Close
+                </button>
+              </div>
             </div>
           </div>
         </div>
