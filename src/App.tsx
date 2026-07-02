@@ -13,6 +13,7 @@ import PrivacyPage from './pages/legal/PrivacyPage';
 import TermsPage from './pages/legal/TermsPage';
 import AccessibilityPage from './pages/legal/AccessibilityPage';
 import CookiePage from './pages/legal/CookiePage';
+import PublicKnowledgeBasePage from './pages/PublicKnowledgeBasePage';
 
 function App() {
   return (
@@ -43,12 +44,14 @@ function App() {
           }
         />
 
+        {/* Public knowledge base */}
+        <Route path="/knowledge-base" element={<PublicKnowledgeBasePage />} />
+
         {/* Legacy redirects — old routes now live under /app/ */}
         <Route path="/dashboard" element={<Navigate to="/app/dashboard" replace />} />
         <Route path="/chat" element={<Navigate to="/app/chat" replace />} />
         <Route path="/search" element={<Navigate to="/app/search" replace />} />
         <Route path="/wizard" element={<Navigate to="/app/wizard" replace />} />
-        <Route path="/knowledge-base" element={<Navigate to="/app/knowledge-base" replace />} />
 
         {/* 404 fallback */}
         <Route path="*" element={<Navigate to="/" replace />} />

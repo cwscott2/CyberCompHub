@@ -120,6 +120,7 @@ export default function LandingPage() {
             <a href="#features" className="text-sm text-secondary-600 hover:text-secondary-900 transition-colors">Features</a>
             <a href="#frameworks" className="text-sm text-secondary-600 hover:text-secondary-900 transition-colors">Frameworks</a>
             <a href="#pricing" className="text-sm text-secondary-600 hover:text-secondary-900 transition-colors">Pricing</a>
+            <Link to="/knowledge-base" className="text-sm text-secondary-600 hover:text-secondary-900 transition-colors">Knowledge Base</Link>
             <Link to="/login" className="text-sm text-secondary-600 hover:text-secondary-900 transition-colors">Sign in</Link>
             <Link to="/signup" className="btn-primary text-sm">Get started free</Link>
           </nav>
