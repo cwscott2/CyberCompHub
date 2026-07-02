@@ -15,6 +15,7 @@ import AdminNav from '../components/AdminNav';
 import AdminUsersPage from '../pages/admin/AdminUsersPage';
 import AdminOrgsPage from '../pages/admin/AdminOrgsPage';
 import AdminSettingsPage from '../pages/admin/AdminSettingsPage';
+import AdminKnowledgeBasePage from '../pages/admin/AdminKnowledgeBasePage';
 import Footer from '../components/Footer';
 
 const NAV_LINKS = [
@@ -185,6 +186,7 @@ export default function AppLayout() {
           <Route path="admin/users" element={<AdminGuard><AdminUsersPage /></AdminGuard>} />
           <Route path="admin/organizations" element={<AdminGuard><AdminOrgsPage /></AdminGuard>} />
           <Route path="admin/settings" element={<AdminGuard><AdminSettingsPage /></AdminGuard>} />
+          <Route path="admin/knowledge-base" element={<AdminGuard><AdminKnowledgeBasePage /></AdminGuard>} />
           <Route path="admin" element={<Navigate to="admin/users" replace />} />
           <Route path="*" element={<Navigate to="dashboard" replace />} />
         </Routes>

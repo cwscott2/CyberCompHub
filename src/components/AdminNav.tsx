@@ -4,6 +4,7 @@ const ADMIN_LINKS = [
   { to: '/app/admin/users', label: 'Users' },
   { to: '/app/admin/organizations', label: 'Organizations' },
   { to: '/app/admin/settings', label: 'Settings' },
+  { to: '/app/admin/knowledge-base', label: 'Knowledge Base' },
 ];
 
 export default function AdminNav() {

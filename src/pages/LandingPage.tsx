@@ -1,4 +1,6 @@
 import { Link } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { supabase } from '../services/supabase';
 import Footer from '../components/Footer';
 
 const FRAMEWORKS = [
@@ -105,6 +107,21 @@ const PRICING = [
 ];
 
 export default function LandingPage() {
+  const [kbStats, setKbStats] = useState<{ frameworks: number; docs: number } | null>(null);
+
+  useEffect(() => {
+    async function fetchStats() {
+      const [{ count: frameworks }, { count: docs }] = await Promise.all([
+        supabase.from('compliance_frameworks').select('*', { count: 'exact', head: true }),
+        supabase.from('documents').select('*', { count: 'exact', head: true }),
+      ]);
+      if (frameworks !== null && docs !== null) {
+        setKbStats({ frameworks, docs });
+      }
+    }
+    fetchStats();
+  }, []);
+
   return (
     <div className="min-h-screen flex flex-col bg-white">
       {/* Header */}
@@ -137,19 +154,16 @@ export default function LandingPage() {
           <div className="max-w-4xl mx-auto text-center">
             <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-primary-50 border border-primary-200 rounded-full text-xs text-primary-700 font-medium mb-6">
               <span className="w-1.5 h-1.5 bg-primary-500 rounded-full" aria-hidden="true" />
-              15+ frameworks · AI-powered · Built on primary sources
+              {kbStats
+                ? `${kbStats.frameworks} frameworks · ${kbStats.docs.toLocaleString()} documents · Built on primary sources`
+                : '15+ frameworks · AI-powered · Built on primary sources'}
             </div>
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-secondary-900 leading-tight mb-6">
               The Compliance Research Platform Built for{' '}
               <span className="text-primary-600">Cybersecurity and AI Governance</span>
             </h1>
-            <p className="text-xl text-secondary-600 max-w-2xl mx-auto mb-4 leading-relaxed">
-              Ask expert questions. Search primary sources. Generate ready-to-use governance artifacts — policies, procedures, gap assessments, POA&Ms, and checklists — grounded in NIST, CMMC, FedRAMP, ISO, EU AI Act, and 10+ more frameworks.
-            </p>
-            {/* Secondary tagline */}
-            <p className="text-base font-semibold text-secondary-800 mb-8 tracking-wide">
-              Cybersecurity &amp; AI Knowledge In.{' '}
-              <span className="text-primary-600">Compliance Artifacts Out.</span>
+            <p className="text-lg text-secondary-600 max-w-2xl mx-auto mb-8 leading-relaxed">
+              Ask expert questions, search primary sources, and generate ready-to-use policies, procedures, gap assessments, POA&Ms, and checklists — grounded in NIST, CMMC, FedRAMP, ISO, EU AI Act, and more.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <Link to="/signup" className="btn-primary text-base px-8 py-3 w-full sm:w-auto text-center">
@@ -159,8 +173,9 @@ export default function LandingPage() {
                 Sign in
               </Link>
             </div>
-            <p className="mt-4 text-sm text-secondary-500">
-              Free tier includes 10 AI chat messages/day and 3 document generations/month.
+            <p className="mt-4 text-sm font-semibold text-secondary-800 tracking-wide">
+              Cybersecurity &amp; AI Knowledge In.{' '}
+              <span className="text-primary-600">Compliance Artifacts Out.</span>
             </p>
           </div>
         </section>
