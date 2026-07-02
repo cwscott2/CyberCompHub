@@ -174,7 +174,7 @@ export default function AppLayout() {
 
       {isPlatformAdmin && location.pathname.startsWith('/app/admin') && <AdminNav />}
 
-      <main id="main-content" className="flex-1">
+      <main id="main-content" className="flex-1 flex flex-col">
         <Routes>
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="chat" element={<ChatPage />} />

@@ -8,11 +8,22 @@ import {
 } from 'https://esm.sh/docx@8.5.0';
 import * as XLSX from 'https://esm.sh/xlsx@0.18.5';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': 'https://cybercompliancehub.vercel.app',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Client-Info, Apikey',
-};
+const ALLOWED_ORIGINS = new Set([
+  'https://cyber-compliance-hub.vercel.app',
+  'https://cyber-compliance-hub-carl-scotts-projects.vercel.app',
+  'http://localhost:5173',
+  'http://localhost:4173',
+]);
+
+function getCorsHeaders(req: Request) {
+  const origin = req.headers.get('Origin') ?? '';
+  const allowedOrigin = ALLOWED_ORIGINS.has(origin) ? origin : 'https://cyber-compliance-hub.vercel.app';
+  return {
+    'Access-Control-Allow-Origin': allowedOrigin,
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Client-Info, Apikey',
+  };
+}
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const ALLOWED_FORMATS = new Set(['markdown', 'docx', 'xlsx']);
@@ -214,14 +225,14 @@ function markdownToDocx(markdown: string): (Paragraph | Table)[] {
 
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
-    return new Response(null, { status: 200, headers: corsHeaders });
+    return new Response(null, { status: 200, headers: getCorsHeaders(req) });
   }
 
   const auth = req.headers.get('Authorization');
   if (!auth || !auth.startsWith('Bearer ')) {
     return new Response(
       JSON.stringify({ error: 'Unauthorized' }),
-      { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { status: 401, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
     );
   }
 
@@ -231,14 +242,14 @@ Deno.serve(async (req: Request) => {
     if (!document_id || !format) {
       return new Response(
         JSON.stringify({ error: 'Document ID and format are required' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
       );
     }
 
     if (!UUID_RE.test(document_id) || !ALLOWED_FORMATS.has(format)) {
       return new Response(
         JSON.stringify({ error: 'Invalid request parameters' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
       );
     }
 
@@ -251,7 +262,7 @@ Deno.serve(async (req: Request) => {
     if (docError || !document) {
       return new Response(
         JSON.stringify({ error: 'Document not found' }),
-        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 404, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
       );
     }
 
@@ -263,7 +274,7 @@ Deno.serve(async (req: Request) => {
       return new Response(content, {
         status: 200,
         headers: {
-          ...corsHeaders,
+          ...getCorsHeaders(req),
           'Content-Type': 'text/markdown',
           'Content-Disposition': `attachment; filename="${safeFilename}.md"`,
         },
@@ -313,7 +324,7 @@ Deno.serve(async (req: Request) => {
       return new Response(buffer, {
         status: 200,
         headers: {
-          ...corsHeaders,
+          ...getCorsHeaders(req),
           'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
           'Content-Disposition': `attachment; filename="${safeFilename}.docx"`,
         },
@@ -349,7 +360,7 @@ Deno.serve(async (req: Request) => {
       return new Response(fullHtml, {
         status: 200,
         headers: {
-          ...corsHeaders,
+          ...getCorsHeaders(req),
           'Content-Type': 'text/html',
           'Content-Disposition': `attachment; filename="${safeFilename}.html"`,
         },
@@ -362,7 +373,7 @@ Deno.serve(async (req: Request) => {
       return new Response(xlsxBuffer, {
         status: 200,
         headers: {
-          ...corsHeaders,
+          ...getCorsHeaders(req),
           'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
           'Content-Disposition': `attachment; filename="${safeFilename}.xlsx"`,
         },
@@ -371,14 +382,14 @@ Deno.serve(async (req: Request) => {
 
     return new Response(
       JSON.stringify({ error: 'Invalid format' }),
-      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
     );
 
   } catch (error) {
     console.error('Export error:', error);
     return new Response(
       JSON.stringify({ error: 'Internal server error' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { status: 500, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
     );
   }
 });

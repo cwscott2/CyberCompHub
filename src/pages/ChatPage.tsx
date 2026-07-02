@@ -112,7 +112,7 @@ export default function ChatPage() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 h-[calc(100vh-4rem)] flex flex-col">
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 min-h-0 flex flex-col">
       <div className="mb-4">
         <h2 className="text-2xl font-bold text-secondary-900 mb-2">Compliance Assistant</h2>
         <p className="text-secondary-600">

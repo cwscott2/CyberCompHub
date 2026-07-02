@@ -1,11 +1,22 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': 'https://cybercompliancehub.vercel.app',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Client-Info, Apikey',
-};
+const ALLOWED_ORIGINS = new Set([
+  'https://cyber-compliance-hub.vercel.app',
+  'https://cyber-compliance-hub-carl-scotts-projects.vercel.app',
+  'http://localhost:5173',
+  'http://localhost:4173',
+]);
+
+function getCorsHeaders(req: Request) {
+  const origin = req.headers.get('Origin') ?? '';
+  const allowedOrigin = ALLOWED_ORIGINS.has(origin) ? origin : 'https://cyber-compliance-hub.vercel.app';
+  return {
+    'Access-Control-Allow-Origin': allowedOrigin,
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Client-Info, Apikey',
+  };
+}
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -14,7 +25,7 @@ function validateAuth(req: Request): Response | null {
   if (!auth || !auth.startsWith('Bearer ')) {
     return new Response(
       JSON.stringify({ error: 'Unauthorized' }),
-      { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { status: 401, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
     );
   }
   return null;
@@ -343,7 +354,7 @@ Use [Organization Name] wherever the organization name appears. Output only the 
 
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
-    return new Response(null, { status: 200, headers: corsHeaders });
+    return new Response(null, { status: 200, headers: getCorsHeaders(req) });
   }
 
   const authError = validateAuth(req);
@@ -363,14 +374,14 @@ Deno.serve(async (req: Request) => {
     if (!framework_id || !template_id) {
       return new Response(
         JSON.stringify({ error: 'Framework ID and Template ID are required' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
       );
     }
 
     if (!UUID_RE.test(framework_id) || !UUID_RE.test(template_id)) {
       return new Response(
         JSON.stringify({ error: 'Invalid ID format' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
       );
     }
 
@@ -385,7 +396,7 @@ Deno.serve(async (req: Request) => {
     if (templateError || !template) {
       return new Response(
         JSON.stringify({ error: 'Template not found' }),
-        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 404, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
       );
     }
 
@@ -405,7 +416,7 @@ Deno.serve(async (req: Request) => {
       if (!ALLOWED_FAMILY_FIELDS.has(family_metadata_field)) {
         return new Response(
           JSON.stringify({ error: 'Invalid family_metadata_field' }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          { status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
         );
       }
       docQuery = docQuery.eq(`metadata->>${family_metadata_field}`, selected_family);
@@ -575,14 +586,14 @@ Deno.serve(async (req: Request) => {
         template_name: template.name,
         framework_name: framework?.name,
       }),
-      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { status: 200, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
     );
   } catch (error) {
     console.error('Generation error:', error);
     console.error('Generation error:', String(error));
     return new Response(
       JSON.stringify({ error: 'Internal server error' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { status: 500, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
     );
   }
 });
