@@ -48,6 +48,58 @@ export default function AccountPage() {
     loadDocs();
   }, []);
 
+  const handleToggleStar = async (doc: GeneratedDoc) => {
+    const newValue = !doc.is_starred;
+    setGeneratedDocs(prev => prev.map(d => d.id === doc.id ? { ...d, is_starred: newValue } : d));
+    if (selectedDoc?.id === doc.id) setSelectedDoc(prev => prev ? { ...prev, is_starred: newValue } : null);
+    await supabase.from('generated_documents').update({ is_starred: newValue }).eq('id', doc.id);
+  };
+
+  const handleSoftDelete = async (docId: string) => {
+    const deletedAt = new Date().toISOString();
+    setGeneratedDocs(prev => prev.filter(d => d.id !== docId));
+    setSelectedDoc(null);
+    setModalContent(null);
+    await supabase.from('generated_documents').update({ deleted_at: deletedAt }).eq('id', docId);
+  };
+
+  const handleOpenModal = async (doc: GeneratedDoc) => {
+    setSelectedDoc(doc);
+    setModalContent(null);
+    setModalLoading(true);
+    const { data } = await supabase
+      .from('generated_documents')
+      .select('content_markdown')
+      .eq('id', doc.id)
+      .single();
+    setModalContent((data as { content_markdown: string } | null)?.content_markdown ?? null);
+    setModalLoading(false);
+  };
+
+  const handleExportFromModal = async (format: 'markdown' | 'docx' | 'xlsx') => {
+    if (!selectedDoc) return;
+    setExportingDocId(selectedDoc.id);
+    try {
+      const { data, error } = await supabase.functions.invoke('export-document', {
+        body: { document_id: selectedDoc.id, format },
+      });
+      if (error) throw error;
+      const blob = new Blob([data], {
+        type: format === 'markdown' ? 'text/markdown' : format === 'docx'
+          ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+          : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${selectedDoc.title}.${format === 'markdown' ? 'md' : format}`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } finally {
+      setExportingDocId(null);
+    }
+  };
+
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
