@@ -52,15 +52,24 @@ export default function AccountPage() {
     const newValue = !doc.is_starred;
     setGeneratedDocs(prev => prev.map(d => d.id === doc.id ? { ...d, is_starred: newValue } : d));
     if (selectedDoc?.id === doc.id) setSelectedDoc(prev => prev ? { ...prev, is_starred: newValue } : null);
-    await supabase.from('generated_documents').update({ is_starred: newValue }).eq('id', doc.id);
+    const { error } = await supabase.from('generated_documents').update({ is_starred: newValue }).eq('id', doc.id);
+    if (error) {
+      // rollback
+      setGeneratedDocs(prev => prev.map(d => d.id === doc.id ? { ...d, is_starred: doc.is_starred } : d));
+      if (selectedDoc?.id === doc.id) setSelectedDoc(prev => prev ? { ...prev, is_starred: doc.is_starred } : null);
+    }
   };
 
   const handleSoftDelete = async (docId: string) => {
     const deletedAt = new Date().toISOString();
+    const docToRemove = generatedDocs.find(d => d.id === docId) ?? null;
     setGeneratedDocs(prev => prev.filter(d => d.id !== docId));
     setSelectedDoc(null);
     setModalContent(null);
-    await supabase.from('generated_documents').update({ deleted_at: deletedAt }).eq('id', docId);
+    const { error } = await supabase.from('generated_documents').update({ deleted_at: deletedAt }).eq('id', docId);
+    if (error && docToRemove) {
+      setGeneratedDocs(prev => [docToRemove, ...prev]);
+    }
   };
 
   const handleOpenModal = async (doc: GeneratedDoc) => {
@@ -84,9 +93,9 @@ export default function AccountPage() {
         body: { document_id: selectedDoc.id, format },
       });
       if (error) throw error;
-      const blob = new Blob([data], {
-        type: format === 'markdown' ? 'text/markdown' : format === 'docx'
-          ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+      const blob = data instanceof Blob ? data : new Blob([data as BlobPart], {
+        type: format === 'markdown' ? 'text/markdown'
+          : format === 'docx' ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
           : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       });
       const url = URL.createObjectURL(blob);
