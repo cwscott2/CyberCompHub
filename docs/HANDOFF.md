@@ -30,7 +30,7 @@
   - CMMC 2.0
   - SP 800-53
 - All inserts guarded with `WHERE NOT EXISTS`. Matches migration 014 (SOC 2) pattern exactly.
-- ⚠️ **Migration 017 NOT YET RUN in Supabase** — run this first thing next session.
+- ✓ **Migration 017 applied July 1, 2026.** All 12 new templates are live.
 
 ### Claude Design — Visual Redesign Spec
 - Claude Design produced a full 10-screen redesign reference.
@@ -58,15 +58,14 @@
 | 014 | soc2_templates | SOC 2 Procedure, POA&M, Gap Assessment | ✓ |
 | 015 | remaining_framework_templates | Policy+Checklist for CMMC, FedRAMP H/M/L, NIST AI/RMF, MITRE ATLAS, AI frameworks | ✓ |
 | 016 | document_history_enhancements | is_starred + deleted_at on generated_documents | ✓ |
-| **017** | **tier1_framework_templates** | **Procedure+POA&M+Gap Assessment for NIST CSF, ISO 27001, CMMC, SP 800-53** | **⚠️ PENDING** |
+| 017 | tier1_framework_templates | Procedure+POA&M+Gap Assessment for NIST CSF, ISO 27001, CMMC, SP 800-53 | ✓ |
 
 ---
 
 ## Immediate Next Actions for New Session
 
-### 1. Run Migration 017 ⚠️ FIRST
-Go to Supabase SQL Editor → paste and run `supabase/migrations/20260701060000_017_tier1_framework_templates.sql`.
-This unlocks Procedure, POA&M, and Gap Assessment for the 4 highest-demand frameworks in the wizard.
+### 1. ~~Run Migration 017~~ ✓ DONE
+Migration 017 applied July 1, 2026. Procedure, POA&M, and Gap Assessment now live in the wizard for NIST CSF, ISO 27001, CMMC, and SP 800-53.
 
 ### 2. Design Implementation — Discuss Before Building
 Read `docs/DESIGN_SPEC.md` in full. The spec is complete and high-fidelity.
@@ -145,10 +144,10 @@ Wire `usage_events` inserts into: chat.message_sent, document.generated, documen
 | SOC 2 | ✓ | ✓ | ✓ | ✓ | ✓ |
 | PCI DSS | ✓ | ✓ | ✓ | — | — |
 | HIPAA | ✓ | ✓ | ✓ | — | — |
-| NIST CSF | ✓ | ✓ | **pending 017** | **pending** | **pending** |
-| SP 800-53 | ✓ | ✓ | **pending 017** | **pending** | **pending** |
-| ISO 27001 | ✓ | ✓ | **pending 017** | **pending** | **pending** |
-| CMMC | ✓ | ✓ | **pending 017** | **pending** | **pending** |
+| NIST CSF | ✓ | ✓ | ✓ | ✓ | ✓ |
+| SP 800-53 | ✓ | ✓ | ✓ | ✓ | ✓ |
+| ISO 27001 | ✓ | ✓ | ✓ | ✓ | ✓ |
+| CMMC | ✓ | ✓ | ✓ | ✓ | ✓ |
 | NIST RMF | ✓ | ✓ | — | — | — |
 | FedRAMP H/M/L | ✓ | ✓ | — | — | — |
 | SOX | ✓ | ✓ | — | — | — |
@@ -179,7 +178,7 @@ Client secret expires every 6 months. Regenerate: Supabase dashboard → Auth �
 Full backlog: `memory/backlog_framework_coverage.md`
 
 Top items in priority order:
-1. **Run Migration 017** — unlocks Tier 1 artifact suite ⚠️ PENDING
+1. ~~**Run Migration 017**~~ ✓ Applied July 1, 2026
 2. **Design implementation** — discuss page-by-page before building; spec in `docs/DESIGN_SPEC.md`
 3. **Logo finalization** — direction A or B; integrate once decided
 4. **Tier 2 artifact templates** — FedRAMP H/M/L + NIST RMF Procedure + POA&M
