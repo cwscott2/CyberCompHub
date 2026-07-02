@@ -6,8 +6,10 @@ interface GeneratedDoc {
   id: string;
   title: string;
   created_at: string;
+  is_starred: boolean;
+  deleted_at: string | null;
   framework: { name: string; abbreviation: string } | null;
-  template: { name: string } | null;
+  template: { name: string; template_type: string } | null;
 }
 
 export default function AccountPage() {
@@ -22,12 +24,22 @@ export default function AccountPage() {
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [generatedDocs, setGeneratedDocs] = useState<GeneratedDoc[]>([]);
   const [docsLoading, setDocsLoading] = useState(true);
+  const [activeFrameworkFilter, setActiveFrameworkFilter] = useState<string | null>(null);
+  const [activeTypeFilter, setActiveTypeFilter] = useState<string | null>(null);
+  const [showStarredOnly, setShowStarredOnly] = useState(false);
+  const [selectedDoc, setSelectedDoc] = useState<GeneratedDoc | null>(null);
+  const [modalContent, setModalContent] = useState<string | null>(null);
+  const [modalLoading, setModalLoading] = useState(false);
+  const [exportingDocId, setExportingDocId] = useState<string | null>(null);
+  const [exportingDataGdpr, setExportingDataGdpr] = useState(false);
+  const [gdprError, setGdprError] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadDocs() {
       const { data } = await supabase
         .from('generated_documents')
-        .select('id, title, created_at, framework:compliance_frameworks(name, abbreviation), template:templates(name)')
+        .select('id, title, created_at, is_starred, deleted_at, framework:compliance_frameworks(name, abbreviation), template:templates(name, template_type)')
+        .is('deleted_at', null)
         .order('created_at', { ascending: false })
         .limit(50);
       setGeneratedDocs((data as unknown as GeneratedDoc[]) ?? []);
