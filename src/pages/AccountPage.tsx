@@ -260,6 +260,49 @@ export default function AccountPage() {
       {/* Generated Documents History */}
       <section className="card mb-6">
         <h3 className="text-base font-semibold text-secondary-900 mb-4">Generated Documents</h3>
+
+        {/* Filter chips — row 1: All / Starred / per-framework */}
+        {generatedDocs.length > 0 && (
+          <div className="flex flex-wrap gap-2 mb-3">
+            <button
+              onClick={() => { setShowStarredOnly(false); setActiveFrameworkFilter(null); setActiveTypeFilter(null); }}
+              className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${!showStarredOnly && !activeFrameworkFilter && !activeTypeFilter ? 'bg-primary-600 text-white border-primary-600' : 'bg-white text-secondary-600 border-secondary-300 hover:border-primary-400'}`}
+            >
+              All
+            </button>
+            <button
+              onClick={() => setShowStarredOnly(v => !v)}
+              className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${showStarredOnly ? 'bg-primary-600 text-white border-primary-600' : 'bg-white text-secondary-600 border-secondary-300 hover:border-primary-400'}`}
+            >
+              ★ Starred
+            </button>
+            {distinctFrameworks.map(fw => (
+              <button
+                key={fw.abbreviation}
+                onClick={() => setActiveFrameworkFilter(v => v === fw.abbreviation ? null : fw.abbreviation)}
+                className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${activeFrameworkFilter === fw.abbreviation ? 'bg-primary-600 text-white border-primary-600' : 'bg-white text-secondary-600 border-secondary-300 hover:border-primary-400'}`}
+              >
+                {fw.abbreviation}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Filter chips — row 2: by template type (only shown when >1 type present) */}
+        {distinctTypes.length > 1 && (
+          <div className="flex flex-wrap gap-2 mb-4">
+            {distinctTypes.map(type => (
+              <button
+                key={type}
+                onClick={() => setActiveTypeFilter(v => v === type ? null : type)}
+                className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${activeTypeFilter === type ? 'bg-secondary-700 text-white border-secondary-700' : 'bg-white text-secondary-600 border-secondary-300 hover:border-secondary-400'}`}
+              >
+                {TYPE_LABELS[type] ?? type}
+              </button>
+            ))}
+          </div>
+        )}
+
         {docsLoading ? (
           <p className="text-sm text-secondary-400">Loading…</p>
         ) : generatedDocs.length === 0 ? (
@@ -267,23 +310,43 @@ export default function AccountPage() {
             No documents generated yet.{' '}
             <a href="/app/wizard" className="text-primary-600 hover:underline">Generate your first document →</a>
           </p>
+        ) : filteredDocs.length === 0 ? (
+          <p className="text-sm text-secondary-500">No documents match the current filters.</p>
         ) : (
           <div className="divide-y divide-secondary-100">
-            {generatedDocs.map(doc => (
-              <div key={doc.id} className="py-3 flex items-start justify-between gap-4">
-                <div className="min-w-0">
+            {filteredDocs.map(doc => (
+              <div key={doc.id} className="py-3 flex items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium text-secondary-900 truncate">{doc.title}</p>
                   <p className="text-xs text-secondary-500 mt-0.5">
-                    {doc.framework?.abbreviation ?? '—'} · {doc.template?.name ?? '—'} ·{' '}
+                    {doc.framework?.abbreviation ?? '—'} · {TYPE_LABELS[doc.template?.template_type ?? ''] ?? doc.template?.name ?? '—'} ·{' '}
                     {new Date(doc.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                   </p>
                 </div>
-                <a
-                  href={`/app/wizard?doc=${doc.id}`}
-                  className="text-xs text-primary-600 hover:underline shrink-0"
-                >
-                  View
-                </a>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    onClick={() => handleToggleStar(doc)}
+                    className="text-base leading-none text-secondary-400 hover:text-amber-400 transition-colors"
+                    aria-label={doc.is_starred ? 'Unstar' : 'Star'}
+                  >
+                    {doc.is_starred ? '★' : '☆'}
+                  </button>
+                  <button
+                    onClick={() => handleOpenModal(doc)}
+                    className="text-xs text-primary-600 hover:underline"
+                  >
+                    View
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (confirm('Remove this document from your history?')) handleSoftDelete(doc.id);
+                    }}
+                    className="text-xs text-secondary-400 hover:text-red-500 transition-colors"
+                    aria-label="Remove from history"
+                  >
+                    ✕
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -308,6 +371,64 @@ export default function AccountPage() {
           Request account deletion
         </button>
       </section>
+
+      {/* Modal for viewing/exporting document */}
+      {selectedDoc && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-lg max-w-2xl w-full max-h-96 flex flex-col">
+            <div className="flex items-center justify-between p-4 border-b border-secondary-200">
+              <h4 className="text-lg font-semibold text-secondary-900">{selectedDoc.title}</h4>
+              <button
+                onClick={() => { setSelectedDoc(null); setModalContent(null); }}
+                className="text-secondary-400 hover:text-secondary-600"
+                aria-label="Close"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="flex-1 overflow-auto p-4">
+              {modalLoading ? (
+                <p className="text-sm text-secondary-400">Loading content…</p>
+              ) : modalContent ? (
+                <div className="prose prose-sm max-w-none">
+                  <p className="text-xs text-secondary-500 whitespace-pre-wrap">{modalContent.slice(0, 500)}…</p>
+                </div>
+              ) : (
+                <p className="text-sm text-secondary-500">Could not load document content.</p>
+              )}
+            </div>
+            <div className="flex items-center justify-end gap-2 p-4 border-t border-secondary-200">
+              <button
+                onClick={() => handleExportFromModal('markdown')}
+                disabled={exportingDocId === selectedDoc.id}
+                className="text-xs text-secondary-600 hover:text-secondary-900 disabled:opacity-50"
+              >
+                {exportingDocId === selectedDoc.id ? 'Exporting…' : 'MD'}
+              </button>
+              <button
+                onClick={() => handleExportFromModal('docx')}
+                disabled={exportingDocId === selectedDoc.id}
+                className="text-xs text-secondary-600 hover:text-secondary-900 disabled:opacity-50"
+              >
+                {exportingDocId === selectedDoc.id ? 'Exporting…' : 'DOCX'}
+              </button>
+              <button
+                onClick={() => handleExportFromModal('xlsx')}
+                disabled={exportingDocId === selectedDoc.id}
+                className="text-xs text-secondary-600 hover:text-secondary-900 disabled:opacity-50"
+              >
+                {exportingDocId === selectedDoc.id ? 'Exporting…' : 'XLSX'}
+              </button>
+              <button
+                onClick={() => { setSelectedDoc(null); setModalContent(null); }}
+                className="px-3 py-1 rounded-lg bg-secondary-200 text-secondary-700 text-xs hover:bg-secondary-300 transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
