@@ -111,6 +111,43 @@ export default function AccountPage() {
     }
   };
 
+  const handleDownloadMyData = async () => {
+    setExportingDataGdpr(true);
+    setGdprError(null);
+    try {
+      const [profileRes, docsRes, membershipsRes] = await Promise.all([
+        supabase.from('profiles').select('display_name, email, created_at, updated_at').eq('id', user!.id).single(),
+        supabase.from('generated_documents').select('id, title, created_at, is_starred, deleted_at, content_markdown, metadata'),
+        supabase.from('org_members').select('role, created_at, organization:organizations(name, slug, plan)').eq('user_id', user!.id),
+      ]);
+
+      if (profileRes.error) throw profileRes.error;
+      if (docsRes.error) throw docsRes.error;
+      if (membershipsRes.error) throw membershipsRes.error;
+
+      const exportDate = new Date().toISOString();
+      const exportData = {
+        export_date: exportDate,
+        profile: profileRes.data,
+        generated_documents: docsRes.data ?? [],
+        organization_memberships: membershipsRes.data ?? [],
+      };
+
+      const json = JSON.stringify(exportData, null, 2);
+      const blob = new Blob([json], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `cybercompliancehub-data-export-${exportDate.slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      setGdprError('Export failed. Please try again or contact support@cybercompliancehub.com.');
+    } finally {
+      setExportingDataGdpr(false);
+    }
+  };
+
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
@@ -353,6 +390,25 @@ export default function AccountPage() {
             ))}
           </div>
         )}
+      </section>
+
+      {/* Your Data */}
+      <section className="card mb-6">
+        <h3 className="text-base font-semibold text-secondary-900 mb-2">Your Data</h3>
+        <p className="text-sm text-secondary-600 mb-4">
+          Download a copy of all data associated with your account, including your profile, generated documents, and organization membership.
+        </p>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={handleDownloadMyData}
+            disabled={exportingDataGdpr}
+            className="btn-primary text-sm disabled:opacity-50"
+          >
+            {exportingDataGdpr ? 'Preparing export…' : 'Download my data'}
+          </button>
+        </div>
+        {gdprError && <p role="alert" className="text-sm text-red-600 mt-3">{gdprError}</p>}
       </section>
 
       {/* Danger zone */}
