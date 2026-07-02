@@ -542,6 +542,8 @@ Deno.serve(async (req: Request) => {
       ? `${selected_family} Security Policy — ${framework?.name}`
       : selected_family && template.template_type === 'procedure'
       ? `${framework?.name} ${selected_family} Procedures - ${new Date().toLocaleDateString()}`
+      : selected_family && template.template_type === 'gap_assessment'
+      ? `${framework?.name} ${selected_family} Gap Assessment - ${new Date().toLocaleDateString()}`
       : `${template.name} - ${new Date().toLocaleDateString()}`;
 
     const { data: savedDoc, error: saveError } = await supabase

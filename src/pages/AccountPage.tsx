@@ -145,7 +145,33 @@ export default function AccountPage() {
     team: { label: 'Team', color: 'bg-purple-100 text-purple-700' },
     enterprise: { label: 'Enterprise', color: 'bg-amber-100 text-amber-700' },
   };
+  const TYPE_LABELS: Record<string, string> = {
+    policy: 'Policy',
+    checklist: 'Checklist',
+    procedure: 'Procedure',
+    poam: 'POA&M',
+    gap_assessment: 'Gap Assessment',
+  };
   const plan = PLAN_LABELS['free'];
+
+  const distinctFrameworks = Array.from(
+    new Map(
+      generatedDocs
+        .filter(d => d.framework)
+        .map(d => [d.framework!.abbreviation, d.framework!])
+    ).values()
+  );
+
+  const distinctTypes = Array.from(
+    new Set(generatedDocs.map(d => d.template?.template_type).filter(Boolean))
+  ) as string[];
+
+  const filteredDocs = generatedDocs.filter(doc => {
+    if (showStarredOnly && !doc.is_starred) return false;
+    if (activeFrameworkFilter && doc.framework?.abbreviation !== activeFrameworkFilter) return false;
+    if (activeTypeFilter && doc.template?.template_type !== activeTypeFilter) return false;
+    return true;
+  });
 
   return (
     <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
