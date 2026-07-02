@@ -1,20 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import { useKnowledgeBaseData } from '../hooks/useKnowledgeBaseData';
 import { supabase } from '../services/supabase';
 import { categoryToGroup, FRAMEWORK_GROUPS } from '../utils/frameworkGroups';
 import type { FrameworkGroup } from '../utils/frameworkGroups';
-
-interface FrameworkStats {
-  id: string;
-  name: string;
-  abbreviation: string;
-  category: string;
-  version: string | null;
-  doc_count: number;
-  control_count: number;
-  source_url: string | null;
-  source_scraper_type: string | null;
-  last_ingested: string | null;
-}
 
 const SCRAPER_LABELS: Record<string, string> = {
   'nist-json': 'NIST OSCAL',
@@ -39,48 +27,11 @@ function QualityBadge({ count }: { count: number }) {
 }
 
 export default function KnowledgeBasePage() {
-  const [stats, setStats] = useState<FrameworkStats[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { stats, loading, totalDocs } = useKnowledgeBaseData();
   const [search, setSearch] = useState('');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [docTitles, setDocTitles] = useState<Record<string, string[]>>({});
   const [loadingDocs, setLoadingDocs] = useState<string | null>(null);
-
-  useEffect(() => {
-    async function load() {
-      const { data: frameworks } = await supabase
-        .from('compliance_frameworks')
-        .select('id, name, abbreviation, category, version')
-        .order('name');
-
-      if (!frameworks) { setLoading(false); return; }
-
-      const statsArr: FrameworkStats[] = await Promise.all(
-        frameworks.map(async (fw) => {
-          const [{ count: docCount }, { count: controlCount }, { data: sources }, { data: latestDoc }] = await Promise.all([
-            supabase.from('documents').select('*', { count: 'exact', head: true }).eq('framework_id', fw.id),
-            supabase.from('documents').select('*', { count: 'exact', head: true }).eq('framework_id', fw.id).eq('document_type', 'control'),
-            supabase.from('sources').select('url, scraper_type').eq('framework_id', fw.id).order('created_at', { ascending: false }).limit(1),
-            supabase.from('documents').select('created_at').eq('framework_id', fw.id).order('created_at', { ascending: false }).limit(1),
-          ]);
-
-          const source = sources?.[0];
-          return {
-            ...fw,
-            doc_count: docCount ?? 0,
-            control_count: controlCount ?? 0,
-            source_url: source?.url ?? null,
-            source_scraper_type: source?.scraper_type ?? null,
-            last_ingested: latestDoc?.[0]?.created_at ?? null,
-          };
-        })
-      );
-
-      setStats(statsArr);
-      setLoading(false);
-    }
-    load();
-  }, []);
 
   async function loadDocTitles(frameworkId: string) {
     if (docTitles[frameworkId]) {
@@ -96,7 +47,7 @@ export default function KnowledgeBasePage() {
       .order('title')
       .limit(200);
 
-    setDocTitles(prev => ({ ...prev, [frameworkId]: data?.map(d => d.title) ?? [] }));
+    setDocTitles(prev => ({ ...prev, [frameworkId]: data?.map((d: { title: string }) => d.title) ?? [] }));
     setExpandedId(frameworkId);
     setLoadingDocs(null);
   }
@@ -112,8 +63,6 @@ export default function KnowledgeBasePage() {
     config: FRAMEWORK_GROUPS[group],
     items: filtered.filter(s => categoryToGroup(s.category) === group),
   })).filter(g => g.items.length > 0);
-
-  const totalDocs = stats.reduce((sum, s) => sum + s.doc_count, 0);
 
   if (loading) {
     return (
@@ -198,17 +147,6 @@ export default function KnowledgeBasePage() {
                         <span className="text-xs bg-white border border-secondary-200 rounded px-1.5 py-0.5 text-secondary-500 font-mono">{fw.abbreviation}</span>
                         {fw.version && <span className="text-xs text-secondary-400">{fw.version}</span>}
                       </div>
-                      {fw.source_url && (
-                        <a
-                          href={fw.source_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={e => e.stopPropagation()}
-                          className="text-xs text-primary-600 hover:underline truncate block mt-0.5 max-w-xs"
-                        >
-                          {fw.source_url}
-                        </a>
-                      )}
                     </div>
                     {/* Docs */}
                     <div className="text-right">
